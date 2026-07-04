@@ -3,114 +3,92 @@ import { scrapeWebsite, searchWeb } from './scraper.js';
 
 const nlp = new NLPProcessor();
 
-// 1. Asosiy ongni qayta tiklaymiz (Bularni tushunishi shart)
+// Intent Classifier (Niyatni aniqlash - 5-6 ta qat'iy kategoriya)
 nlp.train('greeting', "salom qalay nima gap yaxshimisiz ishlaringiz qanday");
-nlp.train('work', "smeta hisobot loyiha ishlar qanday ketyapti pul moliya");
+nlp.train('work', "smeta hisobot loyiha ishlar vazifa monitor pul uyqur procoin");
 nlp.train('weather', "ob havo qanday harorat necha gradus isitadimi sovuqmi");
-nlp.train('search', "qidir internetdan top skraping qil nima degani");
-nlp.train('agreement', "ha xop mayli yaxshi ok tushunarli");
-nlp.train('disagreement', "yoq yo'q kerakmas bekor qil");
-nlp.train('profanity', "dnx jallab jalab onangni onagni e gandon axmoq tushunmading it omi"); // Rasmdagi holatlar uchun himoya
+nlp.train('profanity', "dnx onangni e gandon axmoq tushunmading it omi");
 
+// State Machine (Holatlar dvigateli)
 const sessions = {};
 function getSession(id) {
     if (!sessions[id]) {
-        sessions[id] = { state: 'idle', history: [] };
+        // Holat 0: Kutish (Idle)
+        // Holat 1: Smeta/Loyiha nomi kutilmoqda
+        sessions[id] = { state: 0, history: [] }; 
     }
     return sessions[id];
 }
 
-const reflections = {
-    "men": "siz", "menga": "sizga", "meni": "sizni", "o'zimni": "o'zingizni",
-    "qildim": "qildingiz", "boraman": "borasiz", "xohlayman": "xohlaysiz",
-    "charchadim": "charchadingiz", "qilaman": "qilasiz", "yoqmayapti": "yoqmayapti"
+// A. Lug'at va Qoidalar bazasi (Transformation)
+const substitutions = {
+    "men": "siz", "man": "siz", "menga": "sizga", "meni": "sizni", 
+    "qildim": "qildingiz", "boraman": "borasiz", "xohlayman": "xohlaysiz", 
+    "charchadim": "charchadingiz"
 };
 
 function reflect(text) {
     return text.split(' ').map(word => {
         const cleanWord = word.replace(/[^\w\s\'oʻgʻ]/gi, '');
-        return reflections[cleanWord] ? reflections[cleanWord] : word;
+        return substitutions[cleanWord] || word;
     }).join(' ');
 }
 
-const humanPatterns = [
-    { pattern: /menga (.*) kerak/i, responses: ["Nega aynan {0} kerak sizga?", "Boshqa muqobil varianti yo'qmi?"] },
-    { pattern: /men (.*) his qilyapman|men (.*)man/i, responses: ["Nima uchun o'zingizni {0} his qilyapsiz?"] },
-    { pattern: /(.*) xohlayman/i, responses: ["{0} xohlashingizni tushunaman. Bunga qanday erishamiz?"] },
-    { pattern: /zerikdim|charchadim/i, responses: ["Juda ko'p ishlab yubordingiz shekilli. Keling, chalg'itamiz, internetdan qiziq narsa topaymi?"] }
+// B. Pattern Matching (Decomposition & Reassembly)
+const elizaPatterns = [
+    { pattern: /menga (.*) kerak/i, responses: ["Tushunarli. Nega aynan {0} kerak sizga?", "Agar {0} topsak, qolgan ishlar yurishib ketadimi?"] },
+    { pattern: /ishlar (.*)/i, responses: ["Nega ishlar {0} deb o'ylaysiz?", "Buni hal qilish uchun qayerdan boshlaymiz?"] },
+    { pattern: /men (.*)man/i, responses: ["O'zingizni {0} ekanligingizni qachondan beri sezyapsiz?"] },
+    { pattern: /muammo (.*)/i, responses: ["Xavotir olmang, buni hal qilamiz. {0} bo'yicha aniq qanday yordam kerak?"] }
 ];
 
 export const analyzeIntent = async (text, sessionId = 'default') => {
     try {
         const session = getSession(sessionId);
-        if (!text) return { ui_component: 'TextBubble', data: { text: "Eshityapman... Nimadir demoqchimidingiz?" } };
+        if (!text) return { ui_component: 'TextBubble', data: { text: "Eshityapman, nima demoqchi edingiz?" } };
 
         const input = text.toLowerCase().trim();
         const intent = nlp.predict(input);
 
-        // 1. Qisqa, aniq va emotsional gaplarga (NLP) reaksiyalar!
-        if (intent === 'profanity' || input.includes('dnx') || input.includes('omi') || input.includes('it')) {
-            return { ui_component: 'TextBubble', data: { text: "O'o'o', asablar tarang-ku! 😅 So'kinmasdan kelishaylik, aniq nima muammo bo'lyapti o'zi?" } };
-        }
+        // 1. Qat'iy qoidalar va Xavfsizlik
+        if (intent === 'profanity') return { ui_component: 'TextBubble', data: { text: "Asablar tarang-ku! Yaxshisi, ishlarni tinchgina hal qilaylik." } };
+        if (intent === 'greeting' || input === 'salom') return { ui_component: 'TextBubble', data: { text: "Assalomu alaykum, Mirshod. Ishga tayyormisiz? Bugun nima qilamiz?" } };
         
-        if (intent === 'greeting' || input === 'salom' || input === 'nima gap') {
-            return { ui_component: 'TextBubble', data: { text: "Assalomu alaykum! Xush kelibsiz. Nima gaplar, ishlaringiz yaxshimi?" } };
+        // 2. State Machine (Holatlar mantig'i)
+        if (session.state === 1) { 
+            // Dastur loyiha nomini kutyapti
+            session.state = 0; // Idle holatiga qaytish
+            return { ui_component: 'SuccessCard', data: { title: 'Vazifa qabul qilindi', message: `"${text}" bo'yicha ma'lumotlarni tahlil qilishni boshladim.` } };
         }
 
-        if (intent === 'disagreement' || input === 'yoq' || input === 'yo') {
-            return { ui_component: 'TextBubble', data: { text: "Yo'q bo'lsa yo'q-da. Boshqa qanday yordam bera olaman?" } };
+        if (intent === 'work') {
+            session.state = 1; // Holat 1 ga o'tkazish
+            return { ui_component: 'TextBubble', data: { text: "Loyihalar holati bo'yicha hisobot tayyorlaymi? Bright Future House, Uyqur ERP yoki Procoin monitoringi kabi qaysi biri ustida ishlaymiz?" } };
         }
 
-        if (intent === 'agreement' || input === 'ha' || input === 'ok') {
-            return { ui_component: 'TextBubble', data: { text: "Yaxshi, kelishdik." } };
-        }
-
-        // 2. Psixologik Pattern Matching (Faqat gap uzunroq bo'lsa)
-        for (let item of humanPatterns) {
+        // 3. ELIZA - Refleksiv suhbat (Illusion of Intelligence)
+        for (let item of elizaPatterns) {
             const match = input.match(item.pattern);
             if (match) {
-                const capturedText = match[1] || match[2] || match[0];
+                const capturedText = match[1];
                 const reflectedText = reflect(capturedText);
                 const randomResponse = item.responses[Math.floor(Math.random() * item.responses.length)];
                 return { ui_component: 'TextBubble', data: { text: randomResponse.replace(/\{0\}/g, reflectedText) } };
             }
         }
 
-        // 3. API Integratsiyalar (Ob-havo, Qidiruv)
-        if (intent === 'weather' || input.includes('havo') || input.includes('harorat')) {
+        // 4. Deterministik API qoidalar
+        if (intent === 'weather') {
             try {
                 const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.2646&longitude=69.2163&current_weather=true');
-                if (response.ok) {
-                    const data = await response.json();
-                    return { ui_component: 'TextBubble', data: { text: `Toshkentda hozir harorat **${data.current_weather.temperature}°C** 🌡️` } };
-                }
+                const data = await response.json();
+                return { ui_component: 'TextBubble', data: { text: `Toshkentda hozir harorat **${data.current_weather.temperature}°C** 🌡️` } };
             } catch (e) {}
         }
 
-        if (intent === 'search' || input.includes('qidir') || input.includes('top')) {
-            try {
-                const searchResults = await searchWeb(input);
-                return { ui_component: 'TextBubble', data: { text: `Qidiruv natijalari:\n\n` + searchResults.join('\n\n') } };
-            } catch (err) {
-                return { ui_component: 'ErrorWidget', data: { title: 'Xatolik', message: err.message } };
-            }
-        }
-
-        // 4. Mantiqli Fallback (Agar hech qaysi qolipga tushmasa)
+        // 5. Default javob (Agar hech narsa topilmasa - ELIZA usuli)
         session.history.push(input);
-        
-        // Qisqa so'zlar uchun "Tushunmadim" deb yotmasligi uchun
-        if (input.split(' ').length <= 2) {
-             return { ui_component: 'TextBubble', data: { text: "Xo'sh? Fikringizni davom ettiring." } };
-        }
-
-        const fallbacks = [
-            `Ushbu gapingizni tahlil qilyapman. Boshqacha so'zlar bilan tushuntira olasizmi?`,
-            "Bu qiziq fikr. Batafsilroq gaplashamizmi bu haqida?",
-            "Tushunaman. Keyin nima qilsak ekan?"
-        ];
-        
-        return { ui_component: 'TextBubble', data: { text: fallbacks[Math.floor(Math.random() * fallbacks.length)] } };
+        return { ui_component: 'TextBubble', data: { text: "Bu haqda biroz ko'proq ma'lumot bera olasizmi?" } };
 
     } catch (error) {
         return { ui_component: 'ErrorWidget', data: { title: 'Tizim xatosi', message: "Kichik uzilish bo'ldi. Yana qaytara olasizmi?" } };
