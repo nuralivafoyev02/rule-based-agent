@@ -7,27 +7,48 @@ const nlp = new NLPProcessor();
 // O'QITISH BAZASI (DATASET)
 nlp.train('scraping', "saytdan yangiliklarni qidirib top narxlar qanday");
 nlp.train('scraping', "internetdan malumot skraping qil va menga topib ber");
-nlp.train('scraping', "qidir nima gaplar bor ekan axborot top");
 
-nlp.train('telegram', "telegram botni ulash webhook o'rnatish");
-nlp.train('telegram', "bot sozlamalarini to'g'rila va telegram ula");
+// nlp.train('telegram', "telegram botni ulash webhook o'rnatish");
+// nlp.train('telegram', "bot sozlamalarini to'g'rila va telegram ula");
+
+// YANGI: Ob-havo uchun o'qitish
+nlp.train('weather', "ob havo qanday harorat necha gradus isitadimi sovuqmi");
+nlp.train('weather', "bugun havo qanaqa bo'ladi issiqmi yomg'ir yog'adimi");
+nlp.train('weather', "toshkentda havo qanday ko'chada harorat qanaqa");
 
 nlp.train('greeting', "salom qalay nima gap yaxshimisiz ishlaringiz qanday");
 
-// YANGI: Oddiy suhbatlar va zerikish (Chitchat)
 nlp.train('chitchat', "manga shunday narsa kerakki nima qilish kerak bilmadim zerikdim");
 nlp.train('chitchat', "shunchaki gaplashmoqchi edim odamday gaplashaylik nimadur gapir");
-nlp.train('chitchat', "hafa bo'ldim charchadim ishlashga xohish yo'q kerak emas");
-
 
 export const analyzeIntent = async (text) => {
     const predictedIntent = nlp.predict(text);
 
-    // 1. Agar foydalanuvchi shunchaki zerikib gaplashmoqchi bo'lsa
+    // 1. Ob-havo bloki (Skraping qilmaydi, to'g'ridan-to'g'ri ob-havo serveriga ulanadi)
+    if (predictedIntent === 'weather') {
+        try {
+            // wttr.in - bu dasturchilar uchun bepul va bloklanmaydigan ob-havo xizmati
+            const response = await fetch('https://wttr.in/Tashkent?format=4'); 
+            if (!response.ok) throw new Error("Ob-havo serveri javob bermadi.");
+            
+            const weatherData = await response.text();
+            
+            return {
+                ui_component: 'TextBubble',
+                data: { text: `Toshkent shahri uchun ob-havo:\n\n${weatherData.trim()}\n\nBoshqa shahar kerak bo'lsa, tez orada uni ham qidirishni o'rganib olaman!` }
+            };
+        } catch (err) {
+             return {
+                ui_component: 'ErrorWidget',
+                data: { title: 'Ob-havo xatoligi', message: err.message }
+            };
+        }
+    }
+
     if (predictedIntent === 'chitchat') {
         return {
             ui_component: 'TextBubble',
-            data: { text: "Rostini aytsam, men yirik sun'iy intellekt modeli emasman. Men qat'iy algoritmlar asosida yozilganman, shuning uchun odamdek dildan suhbat qura olmayman.\n\nLekin zerikkan bo'lsangiz, siz uchun internetdan biror qiziqarli yangilik yoki maqola qidirib topishim mumkin. Qidiramizmi?" }
+            data: { text: "Rostini aytsam, men algoritmlar asosida ishlaydigan tizimman va insoniy tuyg'ularni his qilmayman.\n\nLekin zerikkan bo'lsangiz, internetdan biror qiziqarli yangilik topib berishim yoki ob-havoni aytib berishim mumkin. Qaysi birini bajaramiz?" }
         };
     }
 
@@ -56,7 +77,10 @@ export const analyzeIntent = async (text) => {
         } catch (err) {
             return {
                 ui_component: 'ErrorWidget',
-                data: { title: 'Qidiruvda xatolik', message: err.message }
+                data: { 
+                    title: 'Qidiruvda xatolik', 
+                    message: "Xavfsizlik tizimlari (Anti-Bot) meni bloklab qo'ydi. Iltimos, menga aniq bir sayt manzilini bering (masalan, kun.uz qidir)." 
+                }
             };
         }
     }
@@ -65,13 +89,7 @@ export const analyzeIntent = async (text) => {
         try {
             const urlMatch = text.match(/(https?:\/\/[^\s]+)/);
             const hookUrl = urlMatch ? urlMatch[1] : null;
-            
-            if(!hookUrl) {
-                return {
-                    ui_component: 'ErrorWidget',
-                    data: { title: 'URL topilmadi', message: 'Telegram ulanishi uchun URL bering (Masalan: https://domain.uz).' }
-                };
-            }
+            if(!hookUrl) throw new Error('Telegram ulanishi uchun URL bering (Masalan: https://domain.uz).');
 
             await setupWebhook(hookUrl);
             return {
@@ -89,16 +107,15 @@ export const analyzeIntent = async (text) => {
     if (predictedIntent === 'greeting') {
         return {
             ui_component: 'TextBubble',
-            data: { text: "Assalomu alaykum! Men sizning shaxsiy yordamchingizman. Menga internetdan biror narsa topishni yoki veb-saytlarni tahlil qilishni buyurishingiz mumkin." }
+            data: { text: "Assalomu alaykum! Men sizning shaxsiy yordamchingizman. Menga saytlarni tahlil qilishni yoki ob-havoni bilishni buyurishingiz mumkin." }
         };
     }
 
-    // Hech qaysi toifaga tushmasa
     return {
         ui_component: 'SuggestionCard',
         data: { 
             suggestion: 'Kechirasiz, men bu gapingizni tushunmadim. Menga aniqroq buyruq bering.',
-            options: ['O\'zbekiston yangiliklarini top', 'kun.uz maqolalari', 'Telegram botni ulash']
+            options: ['kun.uz maqolalari', 'Ob-havo qanday?', 'Telegram botni ulash']
         }
     };
 };
