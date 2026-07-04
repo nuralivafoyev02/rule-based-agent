@@ -80,13 +80,15 @@ export const useChatStore = defineStore('chat', {
         session.messages.push({ 
           sender: 'ai', 
           component: result.ui_component || 'ErrorWidget', 
-          data: result.data || { message: 'Kutilmagan xatolik' } 
+          data: result.data || { message: 'Kutilmagan xatolik' },
+          isNew: true
         });
       } catch (error) {
         session.messages.push({
           sender: 'ai',
           component: 'ErrorWidget',
-          data: { title: 'Tarmoq xatosi', message: error.message }
+          data: { title: 'Tarmoq xatosi', message: error.message },
+          isNew: true
         });
       } finally {
         this.isLoading = false;

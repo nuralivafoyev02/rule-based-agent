@@ -1,7 +1,6 @@
 <template>
     <div class="flex h-[100dvh] w-full bg-white text-gray-800 font-sans overflow-hidden">
 
-        <!-- Yon Panel (Faqat siz uchun moslashtirilgan) -->
         <aside class="hidden md:flex flex-col w-[260px] bg-[#f9f9f9] border-r border-gray-200 shrink-0">
             <div class="p-3">
                 <button @click="chatStore.createNewSession()"
@@ -89,7 +88,9 @@
                 <div v-else class="max-w-3xl mx-auto px-4 pt-4 pb-10 space-y-6">
                     <div v-for="(msg, index) in chatStore.messages" :key="index"
                         :class="msg.sender === 'user' ? 'flex justify-end' : 'flex justify-start'">
-                        <component :is="getComponent(msg.component)" :data="msg.data" :isUser="msg.sender === 'user'" />
+                        <component :is="getComponent(msg.component)" :data="msg.data" :isUser="msg.sender === 'user'"
+                            :isNew="msg.isNew" @typed="msg.isNew = false; chatStore.saveToStorage();"
+                            @typing="scrollToBottom" />
                     </div>
                     <div v-if="chatStore.isLoading" class="flex justify-start">
                         <Skeleton />
@@ -161,6 +162,11 @@ const chatBox = ref(null);
 const componentsMap = { TextBubble, SuccessCard, SuggestionCard, ErrorWidget };
 const getComponent = (name) => componentsMap[name] || TextBubble;
 
+const scrollToBottom = async () => {
+    await nextTick();
+    if (chatBox.value) chatBox.value.scrollTop = chatBox.value.scrollHeight;
+};
+
 const submitMessage = async () => {
     if (!inputText.value.trim()) return;
     const msg = inputText.value;
@@ -169,8 +175,5 @@ const submitMessage = async () => {
 };
 
 // Avtomatik scroll
-watch(() => chatStore.messages.length, async () => {
-    await nextTick();
-    if (chatBox.value) chatBox.value.scrollTop = chatBox.value.scrollHeight;
-});
+watch(() => chatStore.messages.length, scrollToBottom);
 </script>
