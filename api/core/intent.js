@@ -1,17 +1,28 @@
+import { NLPProcessor } from './nlp.js';
 import { scrapeWebsite } from './scraper.js';
 import { setupWebhook } from './telegram.js';
 
-export const analyzeIntent = async (text) => {
-    const lowerText = text.toLowerCase();
+// 1. NLP dvigatelini ishga tushiramiz
+const nlp = new NLPProcessor();
 
-    // 1-Qoida: Skraping buyruqlari
-    if (/(skrap|qidir|saytdan|yangilik|narx)/.test(lowerText)) {
+// 2. Tizimni Ehtimolliklar nazariyasiga o'qitamiz (Dataset kiritish)
+nlp.train('scraping', 'saytdan yangiliklarni qidirib top narxlar qanday');
+nlp.train('scraping', 'saytdan malumot skraping qil va menga topib ber');
+nlp.train('telegram', 'telegram botni ulash kerak webhook o\'rnat');
+nlp.train('telegram', 'bot sozlamalarini to\'g\'rila va telegram ula');
+nlp.train('greeting', 'salom qalay nima gap yaxshimisiz ishlaringiz qanday');
+
+export const analyzeIntent = async (text) => {
+    // 3. Matn maqsadini bashorat qilish
+    const predictedIntent = nlp.predict(text);
+
+    // 4. Ehtimollik natijasiga qarab harakatlanish
+    if (predictedIntent === 'scraping') {
         try {
-            // URL ni ajratib olishga urinish, yo'qsa default sayt
             const urlMatch = text.match(/(https?:\/\/[^\s]+)/);
             const targetUrl = urlMatch ? urlMatch[1] : 'https://kun.uz'; 
-            
             const results = await scrapeWebsite(targetUrl);
+            
             return {
                 ui_component: 'TextBubble',
                 data: { text: `Qidiruv natijalari (${targetUrl}):\n\n` + results.join('\n- ') }
@@ -21,8 +32,7 @@ export const analyzeIntent = async (text) => {
         }
     }
 
-    // 2-Qoida: Telegram Webhook buyruqlari
-    if (/(telegram|bot|ulash|webhook)/.test(lowerText)) {
+    if (predictedIntent === 'telegram') {
         try {
             const urlMatch = text.match(/(https?:\/\/[^\s]+)/);
             const hookUrl = urlMatch ? urlMatch[1] : null;
@@ -30,25 +40,32 @@ export const analyzeIntent = async (text) => {
             if(!hookUrl) {
                 return {
                     ui_component: 'ErrorWidget',
-                    data: { title: 'URL topilmadi', message: 'Telegram webhook ulash uchun menga Vercel URL manzilingizni bering.' }
+                    data: { title: 'URL topilmadi', message: 'Telegram ulanishi uchun URL bering.' }
                 };
             }
 
-            const isSuccess = await setupWebhook(hookUrl);
+            await setupWebhook(hookUrl);
             return {
                 ui_component: 'SuccessCard',
-                data: { title: 'Telegram ulandi!', message: `${hookUrl} manziliga webhook muvaffaqiyatli o'rnatildi.`, buttonText: 'Botni tekshirish' }
+                data: { title: 'Telegram ulandi!', message: `${hookUrl} ga webhook o'rnatildi.` }
             };
         } catch (err) {
             throw new Error(`Telegram API xatoligi: ${err.message}`);
         }
     }
 
-    // 3-Qoida: Tushunarsiz buyruq (Fallback)
+    if (predictedIntent === 'greeting') {
+        return {
+            ui_component: 'TextBubble',
+            data: { text: "Assalomu alaykum! Men sof algoritmlar va matritsalar asosida ishlovchi aqlli yordamchingizman. Veb-saytlardan ma'lumot izlash yoki tizimlarni ulashda yordam beraman." }
+        };
+    }
+
+    // Hech qaysi parametr to'g'ri kelmasa (Fallback)
     return {
         ui_component: 'SuggestionCard',
         data: { 
-            suggestion: 'Kechirasiz, bu buyruqni tushunmadim. Menga o\'rgatmoqchimisiz?',
+            suggestion: `Kechirasiz, ma'lumotlar bazamda bu ehtimollik juda past baholandi. Boshqacha tushuntirib ko'rasizmi?`,
             options: ['Skraping qoidalari', 'Telegram sozlamalari']
         }
     };
