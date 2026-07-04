@@ -1,10 +1,13 @@
 <template>
-    <div :class="['px-5 py-3.5 whitespace-pre-wrap text-[15px] leading-relaxed shadow-sm',
-        isUser ? 'bg-indigo-600 text-white rounded-[12px] rounded-br-[4px] shadow-indigo-200'
-            : 'bg-white text-gray-800 rounded-[12px] rounded-bl-[4px] border border-gray-100']">
+    <div v-if="isUser"
+        class="bg-[#f4f4f4] text-gray-900 px-5 py-3 rounded-3xl text-[16px] max-w-[85%] md:max-w-[70%] whitespace-pre-wrap leading-relaxed shadow-sm">
+        {{ data.text }}
+    </div>
+    <div v-else class="text-gray-800 text-[16px] leading-relaxed w-full whitespace-pre-wrap">
         {{ data.text }}
     </div>
 </template>
+
 <script setup>
 defineProps(['data', 'isUser']);
 </script>

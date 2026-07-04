@@ -1,18 +1,14 @@
 <template>
-    <div class="bg-red-50/80 border border-red-200/60 p-5 rounded-[12px] shadow-sm w-full flex items-start gap-4">
-        <div class="p-2 bg-red-100 rounded-[12px] text-red-600 shrink-0 mt-0.5">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+    <div class="w-full">
+        <div class="flex items-center gap-2 text-red-500 font-semibold mb-2 text-lg">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                </path>
             </svg>
+            {{ data.title || 'Xatolik yuz berdi' }}
         </div>
-        <div>
-            <h3 class="text-red-700 font-bold text-[15px] mb-1">{{ data.title || 'Kutilmagan xatolik' }}</h3>
-            <p class="text-red-600/90 text-sm leading-relaxed">{{ data.message }}</p>
-            <button v-if="data.action" class="mt-3 text-sm font-bold text-red-700 hover:text-red-800 transition-colors">
-                {{ data.action }} &rarr;
-            </button>
-        </div>
+        <p class="text-gray-800 text-[16px] leading-relaxed">{{ data.message }}</p>
     </div>
 </template>
 <script setup>defineProps(['data']); </script>
