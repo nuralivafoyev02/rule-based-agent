@@ -12,6 +12,7 @@ nlp.train('greeting', "salom qalay yaxshimisiz nima gap nma gaplar xormang slm")
 nlp.train('capabilities', "nimalar qila olasan yordam berish imkoniyatlaring nima nima qila oladi vazifang nima");
 nlp.train('author', "kim yaratgan seni kim yozgan muallifing kim yaratuvching kim kim tayyorlagan nurali vafoyev nurali");
 nlp.train('bot_info', "isming nima sen kimsan o'zing haqingda yordamchi agent");
+nlp.train('reminder', "ertaga soat 9da ishga borishim kerak dushanba kuni uchrashuv bor eslatib qo'y eslatma yozib ol uchrashuv borligini eslat");
 
 // Kontekstli xotira har bir foydalanuvchi uchun alohida
 const userSessions = new Map();
@@ -42,9 +43,27 @@ export const analyzeIntent = async (text, history = [], userId = 'default_user')
         }
 
         const input = text.toLowerCase().trim();
-        const predictedIntent = nlp.predict(input);
 
         // --- 0. Kontekstual bog'liqlikni tekshirish (History) ---
+        // Avval pending reminder (kutilayotgan eslatma) tasdiqlanishini tekshiramiz
+        if (session.pendingReminder && (Date.now() - session.pendingReminder.timestamp < 120000)) {
+            if (input === 'ha' || input.includes('mayli') || input.includes('albatta') || input.includes('saqlang')) {
+                session.pendingReminder = null;
+                return {
+                    ui_component: 'TextBubble',
+                    data: { text: "Saqlab qoldim va o'z vaqtida eslataman." }
+                };
+            }
+            if (input.includes('yo\'q') || input.includes('kerakmas') || input.includes('bekor') || input.includes('atkaz') || input === 'no') {
+                session.pendingReminder = null;
+                return {
+                    ui_component: 'TextBubble',
+                    data: { text: "Xo'p, eslatmayman." }
+                };
+            }
+        }
+
+        const predictedIntent = nlp.predict(input);
         // Agar gap "ertaga", "unda", "ha" kabi so'zlardan boshlansa, oldingi mavzuga qaraymiz.
         if (input.includes('ertaga') || input.includes('qanaqa') || input.includes('keyinchi')) {
             if (session.lastTopic === 'weather' || (history.length > 0 && history[history.length - 1].message.includes('harorat'))) {
@@ -99,6 +118,18 @@ export const analyzeIntent = async (text, history = [], userId = 'default_user')
                 data: { 
                     text: `Men quyidagi vazifalarni bajara olaman:\n\n1. 🌐 **Veb Skraping va Qidiruv:** Har qanday saytdan ma'lumotlarni yig'ib berish yoki internetdan qidirish.\n2. ⛅️ **Ob-havo ma'lumotlari:** Toshkent va boshqa hududlar uchun joriy ob-havo haroratini ko'rsatish.\n3. 🤖 **Telegram Bot:** Telegram botlaringiz uchun webhook sozlash va ulash.\n4. 💻 **Texnik yordam:** Python, Vue yoki boshqa kodlaringizni tahlil qilish va xatolarni tuzatish.\n5. 💬 **Erkin suhbat:** Siz bilan suhbatlashish, ishlardan biroz chalg'ib dam olishingizga ko'maklashish.`
                 }
+            };
+        }
+
+        // --- 1.4. Eslatmalar (Reminders) ---
+        if (predictedIntent === 'reminder' || input.includes('eslat') || input.includes('borishim kerak') || input.includes('uchrashuvim bor') || input.includes('bajarishim kerak')) {
+            session.pendingReminder = {
+                text: text,
+                timestamp: Date.now()
+            };
+            return {
+                ui_component: 'TextBubble',
+                data: { text: "O'sha kuni eslatib yuboraymi?" }
             };
         }
 
