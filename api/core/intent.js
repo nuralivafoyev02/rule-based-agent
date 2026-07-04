@@ -3,17 +3,23 @@ import { scrapeWebsite, searchWeb } from './scraper.js';
 
 const nlp = new NLPProcessor();
 
-// 1. Tizim xotirasi
+// 1. Asosiy ongni qayta tiklaymiz (Bularni tushunishi shart)
+nlp.train('greeting', "salom qalay nima gap yaxshimisiz ishlaringiz qanday");
+nlp.train('work', "smeta hisobot loyiha ishlar qanday ketyapti pul moliya");
+nlp.train('weather', "ob havo qanday harorat necha gradus isitadimi sovuqmi");
+nlp.train('search', "qidir internetdan top skraping qil nima degani");
+nlp.train('agreement', "ha xop mayli yaxshi ok tushunarli");
+nlp.train('disagreement', "yoq yo'q kerakmas bekor qil");
+nlp.train('profanity', "dnx jallab jalab onangni onagni e gandon axmoq tushunmading it omi"); // Rasmdagi holatlar uchun himoya
+
 const sessions = {};
 function getSession(id) {
     if (!sessions[id]) {
-        sessions[id] = { state: 'idle', history: [], lastTopic: null, userName: 'Boshliq' };
+        sessions[id] = { state: 'idle', history: [] };
     }
     return sessions[id];
 }
 
-// 2. Ko'zgu effekti (Odamning so'zini 2-shaxsga o'girish)
-// Masalan: "Men uyni quraman" -> "Siz uyni qurasiz"
 const reflections = {
     "men": "siz", "menga": "sizga", "meni": "sizni", "o'zimni": "o'zingizni",
     "qildim": "qildingiz", "boraman": "borasiz", "xohlayman": "xohlaysiz",
@@ -27,119 +33,86 @@ function reflect(text) {
     }).join(' ');
 }
 
-// 3. Psixologik suhbat naqshlari (Regex Patterns)
-// Tizim gapdagi asosiy so'zni (*) ushlab, uni {0} o'rniga qo'yadi.
 const humanPatterns = [
-    {
-        pattern: /menga (.*) kerak/i,
-        responses: [
-            "Nega aynan {0} kerak sizga?",
-            "Agar {0} topsak, muammoingiz hal bo'ladimi?",
-            "Tushunarli, hozir {0} muhim. Lekin buning o'rniga boshqa yo'li yo'qmi?"
-        ]
-    },
-    {
-        pattern: /men (.*) his qilyapman|men (.*)man/i,
-        responses: [
-            "Qachondan beri o'zingizni {0} his qilyapsiz?",
-            "Sizningcha, nima uchun {0} bo'lyapsiz?",
-            "O'zingizni {0} his qilishingizga nima sabab bo'ldi deb o'ylaysiz?"
-        ]
-    },
-    {
-        pattern: /(.*) xohlayman/i,
-        responses: [
-            "Siz chindan ham {0} xohlaysizmi yoki bu shunchaki o'tkinchi xohishmi?",
-            "{0} xohlashingizni tushunaman. Bunga yetishish uchun biror reja tuzdingizmi?"
-        ]
-    },
-    {
-        pattern: /(.*) xato (.*)/i,
-        responses: [
-            "Xatolarni to'g'rilash har doim mumkin. Aynan qayerda xato bo'ldi?",
-            "Dasturlashda ham, hayotda ham xatolar bo'lib turadi. Yechimini birga izlaymizmi?"
-        ]
-    },
-    {
-        pattern: /nega (.*) bo'lyapti/i,
-        responses: [
-            "Buning sababini topish oson emas. O'zingiz nima deb o'ylaysiz, nega {0} bo'lyapti?",
-            "Balki bunga biz e'tibor bermagan qandaydir kichik omil sababchidir?"
-        ]
-    },
-    {
-        pattern: /zerikdim|charchadim/i,
-        responses: [
-            "Juda ko'p ishlab yubordingiz shekilli. Keling, chalg'ish uchun boshqa mavzuda gaplashamiz.",
-            "Zerikish - bu yangi g'oyalar tug'ilishidan oldingi holat. Internetdan biror qiziq narsa qidiraymi?",
-            "Sizdek inson ham zerikadimi? Qandaydir yangi loyiha boshlash vaqti kelmadimi?"
-        ]
-    }
+    { pattern: /menga (.*) kerak/i, responses: ["Nega aynan {0} kerak sizga?", "Boshqa muqobil varianti yo'qmi?"] },
+    { pattern: /men (.*) his qilyapman|men (.*)man/i, responses: ["Nima uchun o'zingizni {0} his qilyapsiz?"] },
+    { pattern: /(.*) xohlayman/i, responses: ["{0} xohlashingizni tushunaman. Bunga qanday erishamiz?"] },
+    { pattern: /zerikdim|charchadim/i, responses: ["Juda ko'p ishlab yubordingiz shekilli. Keling, chalg'itamiz, internetdan qiziq narsa topaymi?"] }
 ];
 
-// Odamdek fikrlaydigan asosiy funksiya
 export const analyzeIntent = async (text, sessionId = 'default') => {
     try {
         const session = getSession(sessionId);
         if (!text) return { ui_component: 'TextBubble', data: { text: "Eshityapman... Nimadir demoqchimidingiz?" } };
 
         const input = text.toLowerCase().trim();
+        const intent = nlp.predict(input);
 
-        // 1. Psixologik Pattern Matching (Odamdek suhbat qurish)
+        // 1. Qisqa, aniq va emotsional gaplarga (NLP) reaksiyalar!
+        if (intent === 'profanity' || input.includes('dnx') || input.includes('omi') || input.includes('it')) {
+            return { ui_component: 'TextBubble', data: { text: "O'o'o', asablar tarang-ku! 😅 So'kinmasdan kelishaylik, aniq nima muammo bo'lyapti o'zi?" } };
+        }
+        
+        if (intent === 'greeting' || input === 'salom' || input === 'nima gap') {
+            return { ui_component: 'TextBubble', data: { text: "Assalomu alaykum! Xush kelibsiz. Nima gaplar, ishlaringiz yaxshimi?" } };
+        }
+
+        if (intent === 'disagreement' || input === 'yoq' || input === 'yo') {
+            return { ui_component: 'TextBubble', data: { text: "Yo'q bo'lsa yo'q-da. Boshqa qanday yordam bera olaman?" } };
+        }
+
+        if (intent === 'agreement' || input === 'ha' || input === 'ok') {
+            return { ui_component: 'TextBubble', data: { text: "Yaxshi, kelishdik." } };
+        }
+
+        // 2. Psixologik Pattern Matching (Faqat gap uzunroq bo'lsa)
         for (let item of humanPatterns) {
             const match = input.match(item.pattern);
             if (match) {
-                // Gap ichidan olingan o'zak so'zni oyna (reflection) dan o'tkazamiz
                 const capturedText = match[1] || match[2] || match[0];
                 const reflectedText = reflect(capturedText);
-                
-                // Random javob tanlash
                 const randomResponse = item.responses[Math.floor(Math.random() * item.responses.length)];
-                
-                // Matnni tayyorlash
-                const finalResponse = randomResponse.replace(/\{0\}/g, reflectedText);
-                return { ui_component: 'TextBubble', data: { text: finalResponse } };
+                return { ui_component: 'TextBubble', data: { text: randomResponse.replace(/\{0\}/g, reflectedText) } };
             }
         }
 
-        // 2. Aniq ishlarga yo'naltirilgan buyruqlar (Ob-havo, qidiruv)
-        if (input.includes('havo') || input.includes('harorat')) {
+        // 3. API Integratsiyalar (Ob-havo, Qidiruv)
+        if (intent === 'weather' || input.includes('havo') || input.includes('harorat')) {
             try {
                 const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.2646&longitude=69.2163&current_weather=true');
                 if (response.ok) {
                     const data = await response.json();
-                    return { ui_component: 'TextBubble', data: { text: `Toshkentda hozir harorat **${data.current_weather.temperature}°C**. Lekin menimcha sizni ob-havo emas, boshqa narsa o'ylantiryapti. Shundaymi?` } };
+                    return { ui_component: 'TextBubble', data: { text: `Toshkentda hozir harorat **${data.current_weather.temperature}°C** 🌡️` } };
                 }
             } catch (e) {}
         }
 
-        if (input.includes('qidir') || input.includes('top')) {
+        if (intent === 'search' || input.includes('qidir') || input.includes('top')) {
             try {
                 const searchResults = await searchWeb(input);
-                return { ui_component: 'TextBubble', data: { text: `Taqdim etilgan ma'lumotlar:\n\n` + searchResults.join('\n\n') + `\n\nBu siz qidirgan narsami?` } };
+                return { ui_component: 'TextBubble', data: { text: `Qidiruv natijalari:\n\n` + searchResults.join('\n\n') } };
             } catch (err) {
-                return { ui_component: 'ErrorWidget', data: { title: 'Qidiruvda xatolik', message: err.message } };
+                return { ui_component: 'ErrorWidget', data: { title: 'Xatolik', message: err.message } };
             }
         }
 
-        // 3. Kontekstga moslashish (Hech bir qolipga tushmasa)
+        // 4. Mantiqli Fallback (Agar hech qaysi qolipga tushmasa)
         session.history.push(input);
         
+        // Qisqa so'zlar uchun "Tushunmadim" deb yotmasligi uchun
+        if (input.split(' ').length <= 2) {
+             return { ui_component: 'TextBubble', data: { text: "Xo'sh? Fikringizni davom ettiring." } };
+        }
+
         const fallbacks = [
-            `"${input}" dedingiz. Bu fikringiz haqida batafsilroq aytib berasizmi?`,
-            "Tushunaman. Keyin-chi? Nima bo'ldi?",
-            "Bu juda qiziq yondashuv. Buni hisobotda yoki biror loyihada ishlatamizmi?",
-            "Rostini aytsam, hozir aynan nima nazarda tutganingizni chuqur tahlil qilyapman. Boshqacha so'zlar bilan tushuntira olasizmi?"
+            `Ushbu gapingizni tahlil qilyapman. Boshqacha so'zlar bilan tushuntira olasizmi?`,
+            "Bu qiziq fikr. Batafsilroq gaplashamizmi bu haqida?",
+            "Tushunaman. Keyin nima qilsak ekan?"
         ];
         
-        const randomFallback = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-        
-        return {
-            ui_component: 'TextBubble',
-            data: { text: randomFallback }
-        };
+        return { ui_component: 'TextBubble', data: { text: fallbacks[Math.floor(Math.random() * fallbacks.length)] } };
 
     } catch (error) {
-        return { ui_component: 'ErrorWidget', data: { title: 'Tizim xatosi', message: "Uzr, fikrim bo'linib ketdi. Yana qaytara olasizmi?" } };
+        return { ui_component: 'ErrorWidget', data: { title: 'Tizim xatosi', message: "Kichik uzilish bo'ldi. Yana qaytara olasizmi?" } };
     }
 };
