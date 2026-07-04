@@ -4,116 +4,164 @@ import { setupWebhook } from './telegram.js';
 
 const nlp = new NLPProcessor();
 
-// O'QITISH BAZASI (DATASET)
-nlp.train('scraping', "saytdan yangiliklarni qidirib top narxlar qanday");
-nlp.train('scraping', "internetdan malumot skraping qil qidir topib ber");
-
-nlp.train('telegram', "telegram botni ulash webhook o'rnatish");
-nlp.train('telegram', "bot sozlamalarini to'g'rila va telegram ula");
-
+// Orqa fonda ishlovchi sun'iy intellekt dvigatelini o'qitish
+nlp.train('scraping', "saytdan yangiliklarni qidirib top narxlar qanday skraping qidir top");
+nlp.train('telegram', "telegram botni ulash webhook o'rnatish sozlash");
 nlp.train('weather', "ob havo qanday harorat necha gradus isitadimi sovuqmi");
-nlp.train('weather', "bugun havo qanaqa bo'ladi issiqmi yomg'ir yog'adimi");
-nlp.train('weather', "toshkentda havo qanday ko'chada harorat qanaqa");
 
-nlp.train('greeting', "salom qalay nima gap yaxshimisiz ishlaringiz qanday");
+// Kontekstli xotira (Sessiya davomida bot sizni eslab qoladi)
+const BotContext = {
+    lastTopic: null,
+    sessionState: 'active',
+    userName: 'Mirshod' // Tizim sizni doim o'z ismingiz bilan chaqiradi
+};
 
-nlp.train('chitchat', "manga shunday narsa kerakki nima qilish kerak bilmadim zerikdim");
-nlp.train('chitchat', "shunchaki gaplashmoqchi edim odamday gaplashaylik nimadur gapir");
-
+/**
+ * Matnni tahlil qilib, insoniy javob qaytaruvchi va API'larni boshqaruvchi funksiya
+ */
 export const analyzeIntent = async (text) => {
-    const predictedIntent = nlp.predict(text);
-
-    // 1. Yangilangan va ishonchli Ob-havo bloki
-    if (predictedIntent === 'weather') {
-        try {
-            // Open-Meteo API: Mutlaqo bepul, bloklanmaydi. Toshkent koordinatalari: 41.2646, 69.2163
-            const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.2646&longitude=69.2163&current_weather=true');
-            if (!response.ok) throw new Error("Ob-havo ma'lumotlarini yuklashda xatolik yuz berdi.");
-            
-            const data = await response.json();
-            const temp = data.current_weather.temperature;
-            const wind = data.current_weather.windspeed;
-            
+    try {
+        if (!text || typeof text !== 'string') {
             return {
                 ui_component: 'TextBubble',
-                data: { text: `Toshkent shahrida hozirgi harorat: **${temp}°C** 🌡️\nShamol tezligi: **${wind} km/soat** 💨\n\n*(Ma'lumotlar sun'iy yo'ldoshning ochiq radaridan olinmoqda)*` }
-            };
-        } catch (err) {
-             return {
-                ui_component: 'ErrorWidget',
-                data: { title: 'Ob-havo xatoligi', message: err.message }
+                data: { text: `Eshityapman, ${BotContext.userName}. Nima demoqchi edingiz?` }
             };
         }
-    }
 
-    if (predictedIntent === 'chitchat') {
-        return {
-            ui_component: 'TextBubble',
-            data: { text: "Rostini aytsam, men algoritmlar asosida ishlaydigan tizimman va insoniy tuyg'ularni his qilmayman.\n\nLekin zerikkan bo'lsangiz, internetdan biror qiziqarli yangilik topib berishim yoki ob-havoni aytib berishim mumkin. Qaysi birini bajaramiz?" }
-        };
-    }
+        const input = text.toLowerCase().trim();
+        const predictedIntent = nlp.predict(input);
 
-    if (predictedIntent === 'scraping') {
-        try {
-            let targetUrl = null;
-            const exactUrlMatch = text.match(/(https?:\/\/[^\s]+)/);
-            const domainMatch = text.match(/([a-z0-9\-.]+\.(uz|com|org|net|ru|info))/i);
+        // --- 1. Salomlashish va kirish ---
+        if (input.includes('salom') || input.includes('qalay') || input.includes('yaxshimisiz')) {
+            return {
+                ui_component: 'TextBubble',
+                data: { text: `Assalomu alaykum, ${BotContext.userName}! Ishlar qalay? Bugun qanday muammolarni hal qilamiz?` }
+            };
+        }
 
-            if (exactUrlMatch) targetUrl = exactUrlMatch[1];
-            else if (domainMatch) targetUrl = `https://${domainMatch[1]}`;
+        // --- 2. Ish va biznes mantig'i ---
+        if (input.includes('smeta') || input.includes('hisobot') || input.includes('loyiha') || input.includes('ish')) {
+            BotContext.lastTopic = 'work';
+            return {
+                ui_component: 'TextBubble',
+                data: { text: "Tushundim, ish bo'yicha ma'lumot kerak. Qaysi loyiha bo'yicha hisobot tayyorlay? Yoki smeta hujjatlari va aktivlar rentabelligini tahlil qilamizmi?" }
+            };
+        }
 
-            if (targetUrl) {
-                const results = await scrapeWebsite(targetUrl);
+        // --- 3. Texnik/Kod mantig'i ---
+        if (input.includes('kod') || input.includes('xatolik') || input.includes('deploy') || input.includes('bug')) {
+            BotContext.lastTopic = 'technical';
+            return {
+                ui_component: 'TextBubble',
+                data: { text: "Texnik qismda muammo bormi? Python yoki Vue kodini yuborsangiz, birgalikda tahlil qilib, yechim topamiz." }
+            };
+        }
+
+        // --- 4. Hissiyot/Suhbat (Odamdek fikrlash) ---
+        if (input.includes('zerikdim') || input.includes('gaplashaylik') || input.includes('o\'ylaysan')) {
+            if (BotContext.lastTopic === 'work') {
                 return {
                     ui_component: 'TextBubble',
-                    data: { text: `Tahlil qilinmoqda (${targetUrl}):\n\n- ` + results.join('\n- ') }
-                };
-            } else {
-                const searchResults = await searchWeb(text);
-                return {
-                    ui_component: 'TextBubble',
-                    data: { text: `🌐 Qidiruv natijalari:\n\n` + searchResults.join('\n\n') }
+                    data: { text: "Ishlar bilan o'zingizni juda charchatib yubordingiz. Balki tanaffus qilib, kelajakdagi loyihalar haqida suhbatlashamiz yoki biroz dam olamiz?" }
                 };
             }
-        } catch (err) {
             return {
-                ui_component: 'ErrorWidget',
-                data: { title: 'Qidiruvda xatolik', message: err.message }
+                ui_component: 'TextBubble',
+                data: { text: `Zerikish ham ishning bir qismi, ${BotContext.userName}. Keling, dunyodagi yangi texnologiyalar yoki kelajakdagi Procoin kabi rejalaringiz haqida gaplashamiz. Nimalar rejalashtiryapsiz?` }
             };
         }
-    }
 
-    if (predictedIntent === 'telegram') {
-        try {
-            const urlMatch = text.match(/(https?:\/\/[^\s]+)/);
-            const hookUrl = urlMatch ? urlMatch[1] : null;
-            if(!hookUrl) throw new Error('Telegram ulanishi uchun URL bering (Masalan: https://domain.uz).');
-
-            await setupWebhook(hookUrl);
+        // --- 5. Ob-havo (Odamdek gapirish + Haqiqiy API ma'lumoti) ---
+        if (input.includes('havo') || input.includes('ob-havo') || input.includes('issiq') || predictedIntent === 'weather') {
+            try {
+                const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.2646&longitude=69.2163&current_weather=true');
+                if (response.ok) {
+                    const data = await response.json();
+                    return {
+                        ui_component: 'TextBubble',
+                        data: { text: `Toshkentda hozir harorat **${data.current_weather.temperature}°C**. Ob-havo o'zgaruvchan bo'lishi mumkin, lekin ishlaringizda doim barqarorlik tilayman, ${BotContext.userName}!` }
+                    };
+                }
+            } catch (e) {
+                // API ulanmasa, xato bermaydi, insoniy javobga o'tib ketadi
+            }
             return {
-                ui_component: 'SuccessCard',
-                data: { title: 'Telegram ulandi!', message: `${hookUrl} ga webhook o'rnatildi.` }
-            };
-        } catch (err) {
-            return {
-                ui_component: 'ErrorWidget',
-                data: { title: 'Telegram xatoligi', message: err.message }
+                ui_component: 'TextBubble',
+                data: { text: `Toshkentda ob-havo o'zgaruvchan, lekin sizning ishlaringizda hammasi barqaror bo'lishini tilayman, ${BotContext.userName}! Aniqroq harorat kerakmi?` }
             };
         }
-    }
 
-    if (predictedIntent === 'greeting') {
+        // --- 6. Skraping va Qidiruv (Internetga chiqish) ---
+        if (predictedIntent === 'scraping' || input.includes('qidir') || input.includes('top')) {
+            try {
+                let targetUrl = null;
+                const exactUrlMatch = input.match(/(https?:\/\/[^\s]+)/);
+                const domainMatch = input.match(/([a-z0-9\-.]+\.(uz|com|org|net|ru|info))/i);
+
+                if (exactUrlMatch) targetUrl = exactUrlMatch[1];
+                else if (domainMatch) targetUrl = `https://${domainMatch[1]}`;
+
+                if (targetUrl) {
+                    const results = await scrapeWebsite(targetUrl);
+                    return {
+                        ui_component: 'TextBubble',
+                        data: { text: `Tahlil qilinmoqda (${targetUrl}):\n\n- ` + results.join('\n- ') }
+                    };
+                } else {
+                    const searchResults = await searchWeb(input);
+                    return {
+                        ui_component: 'TextBubble',
+                        data: { text: `🌐 ${BotContext.userName}, siz uchun qidiruv natijalari:\n\n` + searchResults.join('\n\n') }
+                    };
+                }
+            } catch (err) {
+                return {
+                    ui_component: 'ErrorWidget',
+                    data: { title: 'Qidiruvda xatolik', message: err.message }
+                };
+            }
+        }
+
+        // --- 7. Telegram Webhook ---
+        if (predictedIntent === 'telegram' || (input.includes('telegram') && input.includes('ulash'))) {
+            try {
+                const urlMatch = input.match(/(https?:\/\/[^\s]+)/);
+                if (!urlMatch) throw new Error('Telegram ulanishi uchun URL bering (Masalan: https://domain.uz).');
+                
+                await setupWebhook(urlMatch[1]);
+                return {
+                    ui_component: 'SuccessCard',
+                    data: { title: 'Telegram ulandi!', message: `${urlMatch[1]} ga webhook o'rnatildi.` }
+                };
+            } catch (err) {
+                return {
+                    ui_component: 'ErrorWidget',
+                    data: { title: 'Telegram xatoligi', message: err.message }
+                };
+            }
+        }
+
+        // --- 8. FALLBACK (Mukammal "Insoniy" javob) ---
         return {
-            ui_component: 'TextBubble',
-            data: { text: "Assalomu alaykum! Men sizning shaxsiy yordamchingizman. Menga saytlarni tahlil qilishni yoki ob-havoni bilishni buyurishingiz mumkin." }
+            ui_component: 'SuggestionCard',
+            data: { 
+                suggestion: `${BotContext.userName}, bu fikringizni biroz murakkabroq qabul qildim. Aniqroq buyruq berasizmi yoki quyidagilardan birini tanlaysizmi?`,
+                options: [
+                    'Smeta hisobotini ko\'rish', 
+                    'Texnik maslahat', 
+                    'Tanaffus qilish'
+                ]
+            }
+        };
+
+    } catch (error) {
+        console.error("Intent Error:", error);
+        return {
+            ui_component: 'ErrorWidget',
+            data: { 
+                title: 'Tizimda kichik uzilish', 
+                message: "Bu fikringiz ustida o'ylayotgandim, lekin tizimda kichik xatolik bo'ldi. Yana bir bor urinib ko'ramizmi?" 
+            }
         };
     }
-
-    return {
-        ui_component: 'SuggestionCard',
-        data: { 
-            suggestion: 'Kechirasiz, men bu gapingizni tushunmadim. Menga aniqroq buyruq bering.',
-            options: ['kun.uz maqolalari', 'Ob-havo qanday?', 'Telegram botni ulash']
-        }
-    };
 };
