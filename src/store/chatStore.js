@@ -64,13 +64,18 @@ export const useChatStore = defineStore('chat', {
       }
 
       // Foydalanuvchi xabarini UI ga chizish
-      session.messages.push({ sender: 'user', component: 'TextBubble', data: { text } });
+      session.messages.push({ 
+        sender: 'user', 
+        component: 'TextBubble', 
+        data: { text },
+        timestamp: Date.now()
+      });
       
       // Loading Status hisoblash (Cooking yoki Thinking)
       const textLower = text.toLowerCase();
       const words = ['Thinking', 'Cooking'];
       const randomWord = words[Math.floor(Math.random() * words.length)];
-      let status = `${randomWord}...`;
+      let status = `${randomWord}`;
       
       if (textLower.includes('qidir') || textLower.includes('top') || textLower.includes('search') || textLower.includes('sayt') || textLower.includes('scrape')) {
           let source = 'duckduckgo.com';
@@ -103,14 +108,16 @@ export const useChatStore = defineStore('chat', {
           sender: 'ai', 
           component: result.ui_component || 'ErrorWidget', 
           data: result.data || { message: 'Kutilmagan xatolik' },
-          isNew: true
+          isNew: true,
+          timestamp: Date.now()
         });
       } catch (error) {
         session.messages.push({
           sender: 'ai',
           component: 'ErrorWidget',
           data: { title: 'Tarmoq xatosi', message: error.message },
-          isNew: true
+          isNew: true,
+          timestamp: Date.now()
         });
       } finally {
         this.isLoading = false;

@@ -87,10 +87,14 @@
                 <!-- Xabarlar ro'yxati -->
                 <div v-else class="max-w-3xl mx-auto px-4 pt-4 pb-10 space-y-6">
                     <div v-for="(msg, index) in chatStore.messages" :key="index"
-                        :class="msg.sender === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                        class="flex flex-col w-full"
+                        :class="msg.sender === 'user' ? 'items-end' : 'items-start'">
                         <component :is="getComponent(msg.component)" :data="msg.data" :isUser="msg.sender === 'user'"
                             :isNew="msg.isNew" @typed="msg.isNew = false; chatStore.saveToStorage();"
                             @typing="scrollToBottom" />
+                        <span v-if="msg.timestamp" class="text-[10px] text-gray-400 mt-1 px-1.5 select-none font-medium">
+                            {{ formatTime(msg.timestamp) }}
+                        </span>
                     </div>
                     <div v-if="chatStore.isLoading" class="flex justify-start">
                         <Skeleton :status="chatStore.loadingStatus" />
@@ -172,6 +176,17 @@ const submitMessage = async () => {
     const msg = inputText.value;
     inputText.value = '';
     await chatStore.sendMessage(msg);
+};
+
+const formatTime = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}.${month}.${year}, ${hours}:${minutes}`;
 };
 
 // Avtomatik scroll

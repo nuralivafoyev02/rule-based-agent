@@ -1,50 +1,99 @@
-import { NLPProcessor } from './nlp.js';
 import { scrapeWebsite, searchWeb } from './scraper.js';
 
-const nlp = new NLPProcessor();
-
-// Niyatlarni o'qitish
-nlp.train('greeting', "salom qalay nima gap yaxshimisiz ishlaringiz qanday");
-nlp.train('work', "smeta hisobot loyiha ishlar vazifa monitor pul uyqur procoin");
-nlp.train('weather', "ob havo qanday harorat necha gradus isitadimi sovuqmi");
-
-const sessions = {};
-function getSession(id) {
-    if (!sessions[id]) {
-        sessions[id] = { state: 0, history: [] }; 
-    }
-    return sessions[id];
-}
-
-const substitutions = {
-    "men": "siz", "man": "siz", "menga": "sizga", "meni": "sizni", 
-    "qildim": "qildingiz", "boraman": "borasiz", "xohlayman": "xohlaysiz", 
-    "charchadim": "charchadingiz"
-};
-
-function reflect(text) {
-    if (!text) return '';
-    return text.split(' ').map(word => {
-        const cleanWord = word.replace(/[^\w\s\'oʻgʻ]/gi, '');
-        return substitutions[cleanWord] || word;
-    }).join(' ');
-}
-
-// ELIZA Patternlari
-const elizaPatterns = [
-    { pattern: /menga (.*) kerak/i, responses: ["Tushunarli. Nega aynan {0} kerak sizga?", "Buning muqobil varianti yo'qmi?"] },
-    { pattern: /ishlar (.*)/i, responses: ["Nega ishlar {0} deb o'ylaysiz?", "Buni hal qilish uchun qayerdan boshlaymiz?"] },
-    { pattern: /kayfiyat (.*)/i, responses: ["Kayfiyatingiz {0} ekanligini tushunaman. Bunga nima sabab bo'ldi?", "Balki biroz chalg'ish uchun qahva icharmiz?"] },
-    { pattern: /muammo (.*)/i, responses: ["Xavotir olmang, buni hal qilamiz. {0} bo'yicha aniq qanday yordam kerak?"] }
-];
-
-// Gemini LLM funksiyasi
 const geminiApiKey = process.env.GEMINI_API_KEY;
 
-async function askGemini(prompt) {
+// Ob-havo yordamchi funksiyasi
+async function fetchWeather() {
+    try {
+        const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.2646&longitude=69.2163&current_weather=true');
+        if (response.ok) {
+            const data = await response.json();
+            return `Toshkent shahridagi joriy harorat: ${data.current_weather.temperature}°C`;
+        }
+    } catch (e) {
+        console.error("Weather error:", e);
+    }
+    return "Toshkent shahridagi ob-havo ma'lumotlarini olib bo'lmadi.";
+}
+
+// Gemini API call funksiyasi
+async function askGemini(contents) {
     if (!geminiApiKey) {
         throw new Error("GEMINI_API_KEY topilmadi (.env faylini tekshiring)");
     }
+
+    const systemPrompt = `Siz Nurali Vafoyevning shaxsiy yordamchisi (Yordamchi Agent) hisoblanasiz. Sizni Nurali Vafoyev yaratgan.
+Foydalanuvchi sizga murojaat qilganda, doim juda xushmuomala bo'ling, unga hurmat bilan "Boshliq" deb murojaat qiling (masalan, 'Salom Boshliq' yoki 'Buyuring Boshliq').
+Agar foydalanuvchi so'kinib yoki jargon so'zlar bilan yozsa, hech qachon xafa bo'lmang yoki so'kinmang. Buning o'rniga, jahlini yumshatuvchi, samimiy va biroz hazilomuz tarzda javob bering, so'kinmasdan masalani hal qilishni taklif qiling.
+
+Sizda quyidagi loyihalar bor:
+1. Bright Future House
+2. Uyqur ERP
+3. Procoin (aktivlar va loyihalar tahlili)
+4. Uyqur Monitor
+
+Sizda ob-havoni tekshirish (getWeather), internetdan qidirish (searchWeb) va saytni o'qish (scrapeWebsite) kabi vositalar (tools) mavjud.
+
+Javob berish qoidalari:
+1. Agar foydalanuvchi yangi vazifa, loyiha yoki eslatma saqlashni muvaffaqiyatli topshirsa, javobingizni maxsus JSON formatda qaytaring:
+{
+  "ui_component": "SuccessCard",
+  "data": {
+    "title": "Vazifa/Eslatma saqlab qolindi",
+    "message": "[bajarilgan ish haqida qisqa ma'lumot]"
+  }
+}
+2. Agar foydalanuvchiga tanlash uchun takliflar ro'yxatini ko'rsatmoqchi bo'lsangiz:
+{
+  "ui_component": "SuggestionCard",
+  "data": {
+    "suggestion": "[savol/matn]",
+    "options": ["taklif 1", "taklif 2", "taklif 3"]
+  }
+}
+3. Boshqa barcha oddiy holatlarda insondek samimiy, o'zbek tilida gapirib javob bering (JSON ishlatmang, shunchaki matn yuboring).`;
+
+    const tools = [{
+        functionDeclarations: [
+            {
+                name: "getWeather",
+                description: "Toshkent shahridagi joriy ob-havo va harorat ma'lumotlarini olish",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {}
+                }
+            },
+            {
+                name: "searchWeb",
+                description: "Internetdan (Wikipedia va DuckDuckGo) berilgan kalit so'z bo'yicha ma'lumot qidirish",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        query: {
+                            type: "STRING",
+                            description: "Qidiriladigan matn yoki so'rov"
+                        }
+                    },
+                    required: ["query"]
+                }
+            },
+            {
+                name: "scrapeWebsite",
+                description: "Berilgan aniq veb-sayt (URL) tarkibidan ma'lumotlarni o'qib olish (scraping)",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        url: {
+                            type: "STRING",
+                            description: "Tahlil qilinadigan to'liq URL manzili (masalan, https://daryo.uz)"
+                        }
+                    },
+                    required: ["url"]
+                }
+            }
+        ]
+    }];
+
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
         method: "POST",
         headers: {
@@ -52,11 +101,11 @@ async function askGemini(prompt) {
             "X-goog-api-key": geminiApiKey
         },
         body: JSON.stringify({
-            contents: [{
-                parts: [{
-                    text: prompt
-                }]
-            }]
+            contents: contents,
+            systemInstruction: {
+                parts: [{ text: systemPrompt }]
+            },
+            tools: tools
         })
     });
 
@@ -65,161 +114,125 @@ async function askGemini(prompt) {
         throw new Error(`Gemini API xatosi: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
-    if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-        return data.candidates[0].content.parts[0].text;
+    let data = await response.json();
+    let candidate = data.candidates && data.candidates[0];
+
+    if (candidate && candidate.content && candidate.content.parts && candidate.content.parts[0].functionCall) {
+        const functionCall = candidate.content.parts[0].functionCall;
+        const functionName = functionCall.name;
+        const args = functionCall.args || {};
+
+        let functionResult;
+        if (functionName === 'getWeather') {
+            functionResult = await fetchWeather();
+        } else if (functionName === 'searchWeb') {
+            functionResult = await searchWeb(args.query);
+        } else if (functionName === 'scrapeWebsite') {
+            functionResult = await scrapeWebsite(args.url);
+        }
+
+        // Gemini'ga funktsiya chaqiruvi va natijasini yuboramiz
+        contents.push({
+            role: "model",
+            parts: [{ functionCall: functionCall }]
+        });
+
+        contents.push({
+            role: "function",
+            parts: [{
+                functionResponse: {
+                    name: functionName,
+                    response: { result: functionResult }
+                }
+            }]
+        });
+
+        const secondResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-goog-api-key": geminiApiKey
+            },
+            body: JSON.stringify({
+                contents: contents,
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                }
+            })
+        });
+
+        if (!secondResponse.ok) {
+            const secondErrorText = await secondResponse.text();
+            throw new Error(`Gemini API 2-bosqich xatosi: ${secondResponse.status} - ${secondErrorText}`);
+        }
+
+        const secondData = await secondResponse.json();
+        if (secondData.candidates && secondData.candidates[0]?.content?.parts[0]?.text) {
+            return secondData.candidates[0].content.parts[0].text;
+        }
+    } else if (candidate && candidate.content && candidate.content.parts && candidate.content.parts[0].text) {
+        return candidate.content.parts[0].text;
     }
+
     throw new Error("Gemini javobini o'qib bo'lmadi");
 }
 
 export const analyzeIntent = async (text, history = [], userId = 'default') => {
     try {
-        const session = getSession(userId);
-        if (!text) return { ui_component: 'TextBubble', data: { text: "Eshityapman, nima demoqchi edingiz?" } };
-
-        const input = text.toLowerCase().trim();
-
-        // ==========================================
-        // 1. QAT'IY QOPQON: So'kinish va jargonlarni ushlash
-        // ==========================================
-        const profanityRegex = /(dnx|jal|naxxoy|poshel|qoton|qotoq|bla|skay|gandon|omi|dalbayob|chort|blyat|blyad|suka)/i;
-        if (profanityRegex.test(input) || input.includes('skay') || input.includes('qotoni') || input.includes('omi')) {
-            const angryResponses = [
-                "O'oo, asablar tarangku! Keling, so'kinmasdan hal qilamiz. 😅",
-                "Bunday so'zlar bilan muammo hal bo'lmaydi. Yaxshisi, nima bo'lganini odamdek ayting.",
-                "Tushunaman, jahl ustida yozdingiz. Lekin men shunchaki botman, asabingizni asrang!",
-                "So'kinish shart emas! Muammoni aytsangiz, yordam berishga harakat qilaman."
-            ];
-            return { ui_component: 'TextBubble', data: { text: angryResponses[Math.floor(Math.random() * angryResponses.length)] } };
+        if (!text) {
+            return { ui_component: 'TextBubble', data: { text: "Eshityapman, nima demoqchi edingiz?" } };
         }
 
-        // 2. QISQA JAVOBLAR (Yo'q / Ha kabi gaplarga zerikarli default javob qaytarmaslik)
-        if (/^(yoq|yo|yo'q|yok|yoq|yoo)$/i.test(input)) {
-            return { ui_component: 'TextBubble', data: { text: "Tushunarli, yo'q bo'lsa yo'q. Boshqa nima xizmat?" } };
-        }
-        if (/^(ha|xa|hm|ok|xop|mayli)$/i.test(input)) {
-            return { ui_component: 'TextBubble', data: { text: "Yaxshi, kelishdik. Davom etamizmi?" } };
-        }
-
-        // 3. NLP orqali qolgan niyatlarni aniqlash
-        const intent = nlp.predict(input);
-
-        // 3.1. Salomlashish (Faqat qisqa gaplar, salom so'zi ishtirok etganda va u so'roq gap bo'lmaganda)
-        const isQuestion = (input.includes('qaysi') || input.includes('kim') || input.includes('qayer') || input.includes('nega') || input.includes('qachon') || (input.includes('nima') && !input.includes('gap')) || (input.includes('qanday') && !input.includes('ishlar') && !input.includes('salom')));
-        
-        if (!isQuestion && ((intent === 'greeting' && input.length < 30) || input === 'salom' || input.startsWith('salom') || input.startsWith('assalomu alaykum'))) {
-            return { ui_component: 'TextBubble', data: { text: "Assalomu alaykum! Ishga tayyormisiz? Bugun nima qilamiz?" } };
-        }
-        
-        // 3.2. Ish (Work)
-        if (session.state === 1) { 
-            session.state = 0;
-            return { ui_component: 'SuccessCard', data: { title: 'Vazifa qabul qilindi', message: `"${text}" bo'yicha ma'lumotlarni tahlil qilishni boshladim.` } };
-        }
-        if (intent === 'work' && (input.includes('smeta') || input.includes('hisobot') || input.includes('loyiha') || input.includes('ish') || input.includes('vazifa') || input.includes('uyqur') || input.includes('procoin'))) {
-            session.state = 1; 
-            return { ui_component: 'TextBubble', data: { text: "Loyihalar holati bo'yicha hisobot tayyorlaymi? Bright Future House, Uyqur ERP yoki Procoin qaysi biri ustida ishlaymiz?" } };
-        }
-
-        // 3.3. Ob-havo (Weather)
-        if (intent === 'weather' && (input.includes('havo') || input.includes('harorat') || input.includes('gradus') || input.includes('issiq') || input.includes('sovuq'))) {
-            try {
-                const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.2646&longitude=69.2163&current_weather=true');
-                if (response.ok) {
-                    const data = await response.json();
-                    return {
-                        ui_component: 'TextBubble',
-                        data: { text: `Toshkentda hozir harorat **${data.current_weather.temperature}°C**. Ob-havo o'zgaruvchan bo'lishi mumkin, lekin ishlaringizda doim barqarorlik tilayman!` }
-                    };
-                }
-            } catch (e) {}
-            return { ui_component: 'TextBubble', data: { text: "Toshkentda ob-havo o'zgaruvchan, lekin sizning ishlaringizda hammasi barqaror bo'lishini tilayman!" } };
-        }
-
-        // 3.4. Muallif haqida
-        if (input.includes('yaratgan') || input.includes('yozgan') || input.includes('muallif') || input.includes('nurali')) {
+        // Suhbat tarixini Gemini formatiga o'tkazish
+        const contents = history.map(item => {
             return {
-                ui_component: 'TextBubble',
-                data: { text: "Meni **Nurali Vafoyev** yaratganlar. Men u kishining shaxsiy yordamchisi hisoblanaman va kundalik vazifalarda ko'maklashaman." }
+                role: item.sender === 'ai' ? 'model' : 'user',
+                parts: [{ text: item.message }]
             };
-        }
+        });
 
-        // 3.5. Imkoniyatlar (Capabilities)
-        if (input.includes('imkoniyat') || input.includes('nima qila olasan') || input.includes('yordam ber') || input.includes('vazifang')) {
-            return {
-                ui_component: 'TextBubble',
-                data: { 
-                    text: `Men quyidagi vazifalarni bajara olaman:\n\n1. 🌐 **Internetdan qidiruv:** Veb-saytlardan ma'lumot qidirish.\n2. ⛅️ **Ob-havo:** Toshkent uchun ob-havo ma'lumotlari.\n3. 🧠 **AI Yordamchi:** Har qanday savollarga Gemini orqali mukammal javob berish.\n4. 💻 **Kod tahlili:** Kodlardagi xatolarni topish va tushuntirish.`
-                }
-            };
-        }
+        // Hozirgi xabarni qo'shish
+        contents.push({
+            role: 'user',
+            parts: [{ text: text }]
+        });
 
-        // 3.6. Internetdan qidiruv (Search / Scrape)
-        if (input.includes('qidir') || input.includes('top') || input.includes('search') || input.includes('sayt') || input.includes('url')) {
-            try {
-                let targetUrl = null;
-                const exactUrlMatch = input.match(/(https?:\/\/[^\s]+)/);
-                const domainMatch = input.match(/([a-z0-9\-.]+\.(uz|com|org|net|ru|info))/i);
+        // Gemini'dan javob olish
+        const geminiResponseText = await askGemini(contents);
 
-                if (exactUrlMatch) targetUrl = exactUrlMatch[1];
-                else if (domainMatch) targetUrl = `https://${domainMatch[1]}`;
-
-                if (targetUrl) {
-                    const results = await scrapeWebsite(targetUrl);
-                    return {
-                        ui_component: 'TextBubble',
-                        data: { text: `Tahlil qilinmoqda (${targetUrl}):\n\n- ` + results.join('\n- ') }
-                    };
-                } else {
-                    const searchResults = await searchWeb(input);
-                    return {
-                        ui_component: 'TextBubble',
-                        data: { text: `🌐 Siz uchun qidiruv natijalari:\n\n` + searchResults.join('\n\n') }
-                    };
-                }
-            } catch (err) {
-                // Agar qidiruvda xatolik bo'lsa, Gemini'ga o'tadi
-            }
-        }
-
-        // 4. ELIZA - Refleksiv suhbat (Faqat juda qisqa suhbatlar uchun)
-        if (input.split(' ').length <= 5) {
-            for (let item of elizaPatterns) {
-                const match = input.match(item.pattern);
-                if (match) {
-                    const capturedText = match[1];
-                    const reflectedText = reflect(capturedText);
-                    const randomResponse = item.responses[Math.floor(Math.random() * item.responses.length)];
-                    return { ui_component: 'TextBubble', data: { text: randomResponse.replace(/\{0\}/g, reflectedText) } };
-                }
-            }
-        }
-
-        // 5. GEMINI FALLBACK (Qiyin holatlarda aqli yetmaganda)
+        // JSON formatida maxsus karta so'ralganini tekshirish
         try {
-            const geminiResponse = await askGemini(text);
-            return {
-                ui_component: 'TextBubble',
-                data: { text: geminiResponse }
-            };
-        } catch (geminiError) {
-            console.error("Gemini Error:", geminiError);
+            let cleanedText = geminiResponseText.trim();
+            if (cleanedText.startsWith("```json")) {
+                cleanedText = cleanedText.slice(7, -3).trim();
+            } else if (cleanedText.startsWith("```")) {
+                cleanedText = cleanedText.slice(3, -3).trim();
+            }
+
+            const json = JSON.parse(cleanedText);
+            if (json.ui_component) {
+                return {
+                    ui_component: json.ui_component,
+                    data: json.data || {}
+                };
+            }
+        } catch (e) {
+            // Oddiy matn, xatolik emas
         }
 
-        // 6. Default Fallback (Oxirgi chora)
-        session.history.push(input);
-        if (input.split(' ').length <= 2) {
-             return { ui_component: 'TextBubble', data: { text: "Xo'sh? Fikringizni sal kengroq yozing, tushunmadim." } };
-        }
-
-        const fallbacks = [
-            "Bu haqda biroz ko'proq ma'lumot bera olasizmi?",
-            "Tushunarli... Keyin-chi? Nima bo'ldi?",
-            "Sizningcha, nima uchun bunday holat yuzaga keldi?"
-        ];
-        return { ui_component: 'TextBubble', data: { text: fallbacks[Math.floor(Math.random() * fallbacks.length)] } };
+        return {
+            ui_component: 'TextBubble',
+            data: { text: geminiResponseText }
+        };
 
     } catch (error) {
-        return { ui_component: 'ErrorWidget', data: { title: 'Tizim xatosi', message: "Kichik uzilish bo'ldi. Yana qaytara olasizmi?" } };
+        console.error("Error in analyzeIntent:", error);
+        return {
+            ui_component: 'ErrorWidget',
+            data: { 
+                title: 'Tizim xatosi', 
+                message: "Afsuski, Gemini miyasida xatolik yuz berdi. Iltimos, qayta urinib ko'ring." 
+            } 
+        };
     }
 };
