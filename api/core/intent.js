@@ -13,7 +13,7 @@ nlp.train('weather', "ob havo qanday harorat necha gradus isitadimi sovuqmi");
 const BotContext = {
     lastTopic: null,
     sessionState: 'active',
-    userName: 'Mirshod' // Tizim sizni doim o'z ismingiz bilan chaqiradi
+    userName: 'Boshliq'
 };
 
 /**
