@@ -8,6 +8,7 @@ export const useChatStore = defineStore('chat', {
       sessions: savedSessions,
       activeSessionId: savedSessions.length > 0 ? savedSessions[0].id : null,
       isLoading: false,
+      loadingStatus: 'Thinking...',
     };
   },
   
@@ -64,6 +65,27 @@ export const useChatStore = defineStore('chat', {
 
       // Foydalanuvchi xabarini UI ga chizish
       session.messages.push({ sender: 'user', component: 'TextBubble', data: { text } });
+      
+      // Loading Status hisoblash (Cooking yoki Thinking)
+      const textLower = text.toLowerCase();
+      const words = ['Thinking', 'Cooking'];
+      const randomWord = words[Math.floor(Math.random() * words.length)];
+      let status = `${randomWord}...`;
+      
+      if (textLower.includes('qidir') || textLower.includes('top') || textLower.includes('search') || textLower.includes('sayt') || textLower.includes('scrape')) {
+          let source = 'duckduckgo.com';
+          if (textLower.includes('wiki') || textLower.includes('wikipedia')) {
+              source = 'wikipedia.org';
+          } else {
+              const urlMatch = textLower.match(/(https?:\/\/)?([a-z0-9\-.]+\.(uz|com|org|net|ru|info))/i);
+              if (urlMatch) {
+                  source = urlMatch[2];
+              }
+          }
+          status = `${randomWord}... searching from ${source}...`;
+      }
+      this.loadingStatus = status;
+      
       this.isLoading = true;
       this.saveToStorage();
 

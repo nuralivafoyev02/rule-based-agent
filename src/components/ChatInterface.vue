@@ -93,7 +93,7 @@
                             @typing="scrollToBottom" />
                     </div>
                     <div v-if="chatStore.isLoading" class="flex justify-start">
-                        <Skeleton />
+                        <Skeleton :status="chatStore.loadingStatus" />
                     </div>
                 </div>
             </div>

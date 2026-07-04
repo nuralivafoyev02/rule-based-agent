@@ -7,15 +7,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { computed } from 'vue';
 
-const currentWord = ref('Thinking...');
+const props = defineProps(['status']);
 
-onMounted(() => {
-    // Tasodifiy so'zni tanlash
+const currentWord = computed(() => {
+    if (props.status) return props.status;
     const words = ['Thinking', 'Cooking'];
     const randomIndex = Math.floor(Math.random() * words.length);
-    currentWord.value = words[randomIndex];
+    return words[randomIndex] + '...';
 });
 </script>
 
