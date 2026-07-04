@@ -71,7 +71,7 @@
             <header class="h-14 flex items-center justify-between px-4 sticky top-0 bg-white z-10">
                 <div
                     class="flex items-center gap-2 font-semibold text-lg text-gray-800 cursor-pointer hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors">
-                    Shaxsiy Yordamchi
+                    Yordamchi Agent
                 </div>
                 <!-- Premium tugmalari mutlaqo olib tashlandi -->
             </header>

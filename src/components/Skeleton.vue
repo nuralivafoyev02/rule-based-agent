@@ -1,6 +1,6 @@
 <template>
     <div class="flex items-center py-2 px-1">
-        <div class="text-[15px] font-bold tracking-wide text-shimmer select-none">
+        <div class="text-[15px] font-normal tracking-wide text-shimmer select-none">
             {{ currentWord }}
         </div>
     </div>
