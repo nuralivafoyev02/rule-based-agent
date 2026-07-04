@@ -81,7 +81,7 @@
                 <!-- Bo'sh holat -->
                 <div v-if="!chatStore.messages || chatStore.messages.length === 0"
                     class="h-full flex flex-col items-center justify-center px-4 -mt-10">
-                    <h2 class="text-[28px] font-semibold text-gray-800 mb-8">Bugun qanday rejalar bor?</h2>
+                    <h2 class="text-[28px] font-semibold text-gray-800 mb-8">Hayrli kun, Boshliq!</h2>
                 </div>
 
                 <!-- Xabarlar ro'yxati -->
