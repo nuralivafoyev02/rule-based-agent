@@ -29,10 +29,11 @@ export class NLPProcessor {
     // Xato yozilgan so'zni bazadagi eng yaqin so'zga to'g'rilash
     correctTypo(word) {
         let bestMatch = word;
-        let minDistance = 3; // 2 ta harf xatosigacha kechiradi
+        const maxAllowed = word.length <= 3 ? 1 : 2;
+        let minDistance = maxAllowed + 1;
         this.vocabulary.forEach(vocabWord => {
             const dist = this.levenshtein(word, vocabWord);
-            if (dist < minDistance && Math.abs(word.length - vocabWord.length) <= 2) {
+            if (dist < minDistance && Math.abs(word.length - vocabWord.length) <= 1) {
                 minDistance = dist;
                 bestMatch = vocabWord;
             }

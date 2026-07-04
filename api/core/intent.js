@@ -104,8 +104,10 @@ export const analyzeIntent = async (text, history = [], userId = 'default') => {
         // 3. NLP orqali qolgan niyatlarni aniqlash
         const intent = nlp.predict(input);
 
-        // 3.1. Salomlashish (Faqat qisqa gaplar va salom so'zi ishtirok etganda)
-        if ((intent === 'greeting' && input.length < 30) || input === 'salom' || input.startsWith('salom') || input.startsWith('assalomu alaykum')) {
+        // 3.1. Salomlashish (Faqat qisqa gaplar, salom so'zi ishtirok etganda va u so'roq gap bo'lmaganda)
+        const isQuestion = (input.includes('qaysi') || input.includes('kim') || input.includes('qayer') || input.includes('nega') || input.includes('qachon') || (input.includes('nima') && !input.includes('gap')) || (input.includes('qanday') && !input.includes('ishlar') && !input.includes('salom')));
+        
+        if (!isQuestion && ((intent === 'greeting' && input.length < 30) || input === 'salom' || input.startsWith('salom') || input.startsWith('assalomu alaykum'))) {
             return { ui_component: 'TextBubble', data: { text: "Assalomu alaykum! Ishga tayyormisiz? Bugun nima qilamiz?" } };
         }
         
