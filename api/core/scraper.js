@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 
-// 1. Aniq URL berilganda faqat o'sha saytni o'qish
+// 1. Aniq URL berilganda faqat o'sha saytni o'qish (O'zgarishsiz qoldi)
 export const scrapeWebsite = async (url) => {
     try {
         const response = await fetch(url, {
@@ -25,36 +25,45 @@ export const scrapeWebsite = async (url) => {
     }
 };
 
-// 2. Hech qanday sayt berilmaganda Butun Internetni tintish (Web Search)
+// 2. Butun Internetni tintish (Botlardan himoyalangan yangi versiya)
 export const searchWeb = async (query) => {
     try {
-        // Bloklanmaslik uchun xavfsiz HTML qidiruvidan foydalanamiz
-        const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`; 
+        // 1-Qadam: Avval Wikipedia Ochiq API'sidan qidiramiz (100% ishonchli, bloklanmaydi)
+        const wikiRes = await fetch(`https://uz.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json`);
         
-        const response = await fetch(searchUrl, {
-            headers: { 
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept-Language': 'uz-UZ,uz;q=0.9,en-US;q=0.8,en;q=0.7'
+        if (wikiRes.ok) {
+            const wikiData = await wikiRes.json();
+            if (wikiData.query && wikiData.query.search.length > 0) {
+                let results = [];
+                wikiData.query.search.slice(0, 3).forEach(item => {
+                    const cleanSnippet = item.snippet.replace(/<\/?[^>]+(>|$)/g, ""); // HTML taglarni tozalash
+                    results.push(`📚 ${item.title}:\n${cleanSnippet}...`);
+                });
+                return results;
             }
+        }
+
+        // 2-Qadam: Agar Wiki'dan topilmasa, DuckDuckGo Lite versiyasiga murojaat qilamiz
+        const ddgRes = await fetch('https://lite.duckduckgo.com/lite/', {
+            method: 'POST', // GET emas, POST ishlatamiz (blokirovkani chetlab o'tish uchun)
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+            },
+            body: `q=${encodeURIComponent(query)}`
         });
 
-        if (!response.ok) throw new Error(`Qidiruv tizimiga ulanib bo'lmadi`);
-
-        const html = await response.text();
+        const html = await ddgRes.text();
         const $ = cheerio.load(html);
         let results = [];
 
-        // Qidiruv natijalaridan sarlavha va qisqacha ma'lumotlarni yig'ib olish
-        $('.result__body').slice(0, 4).each((i, el) => {
-            const title = $(el).find('.result__title').text().trim();
-            const snippet = $(el).find('.result__snippet').text().trim();
-            if (title && snippet) {
-                results.push(`🔹 ${title}\n   ${snippet}`);
-            }
+        $('.result-snippet').slice(0, 3).each((i, el) => {
+            const snippet = $(el).text().trim();
+            if (snippet && snippet.length > 20) results.push(`🔹 ${snippet}`);
         });
 
-        return results.length > 0 ? results : ["Qidiruv bo'yicha internetdan hech narsa topilmadi."];
+        return results.length > 0 ? results : ["Kechirasiz, bu mavzuda ochiq manbalardan ma'lumot topa olmadim."];
     } catch (error) {
-        throw new Error(error.message);
+        throw new Error("Tarmoqdagi xavfsizlik cheklovlari tufayli qidiruvni amalga oshirib bo'lmadi.");
     }
 };

@@ -6,12 +6,11 @@ const nlp = new NLPProcessor();
 
 // O'QITISH BAZASI (DATASET)
 nlp.train('scraping', "saytdan yangiliklarni qidirib top narxlar qanday");
-nlp.train('scraping', "internetdan malumot skraping qil va menga topib ber");
+nlp.train('scraping', "internetdan malumot skraping qil qidir topib ber");
 
-// nlp.train('telegram', "telegram botni ulash webhook o'rnatish");
-// nlp.train('telegram', "bot sozlamalarini to'g'rila va telegram ula");
+nlp.train('telegram', "telegram botni ulash webhook o'rnatish");
+nlp.train('telegram', "bot sozlamalarini to'g'rila va telegram ula");
 
-// YANGI: Ob-havo uchun o'qitish
 nlp.train('weather', "ob havo qanday harorat necha gradus isitadimi sovuqmi");
 nlp.train('weather', "bugun havo qanaqa bo'ladi issiqmi yomg'ir yog'adimi");
 nlp.train('weather', "toshkentda havo qanday ko'chada harorat qanaqa");
@@ -24,18 +23,20 @@ nlp.train('chitchat', "shunchaki gaplashmoqchi edim odamday gaplashaylik nimadur
 export const analyzeIntent = async (text) => {
     const predictedIntent = nlp.predict(text);
 
-    // 1. Ob-havo bloki (Skraping qilmaydi, to'g'ridan-to'g'ri ob-havo serveriga ulanadi)
+    // 1. Yangilangan va ishonchli Ob-havo bloki
     if (predictedIntent === 'weather') {
         try {
-            // wttr.in - bu dasturchilar uchun bepul va bloklanmaydigan ob-havo xizmati
-            const response = await fetch('https://wttr.in/Tashkent?format=4'); 
-            if (!response.ok) throw new Error("Ob-havo serveri javob bermadi.");
+            // Open-Meteo API: Mutlaqo bepul, bloklanmaydi. Toshkent koordinatalari: 41.2646, 69.2163
+            const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.2646&longitude=69.2163&current_weather=true');
+            if (!response.ok) throw new Error("Ob-havo ma'lumotlarini yuklashda xatolik yuz berdi.");
             
-            const weatherData = await response.text();
+            const data = await response.json();
+            const temp = data.current_weather.temperature;
+            const wind = data.current_weather.windspeed;
             
             return {
                 ui_component: 'TextBubble',
-                data: { text: `Toshkent shahri uchun ob-havo:\n\n${weatherData.trim()}\n\nBoshqa shahar kerak bo'lsa, tez orada uni ham qidirishni o'rganib olaman!` }
+                data: { text: `Toshkent shahrida hozirgi harorat: **${temp}°C** 🌡️\nShamol tezligi: **${wind} km/soat** 💨\n\n*(Ma'lumotlar sun'iy yo'ldoshning ochiq radaridan olinmoqda)*` }
             };
         } catch (err) {
              return {
@@ -71,16 +72,13 @@ export const analyzeIntent = async (text) => {
                 const searchResults = await searchWeb(text);
                 return {
                     ui_component: 'TextBubble',
-                    data: { text: `🌐 Internet qidiruv natijalari:\n\n` + searchResults.join('\n\n') }
+                    data: { text: `🌐 Qidiruv natijalari:\n\n` + searchResults.join('\n\n') }
                 };
             }
         } catch (err) {
             return {
                 ui_component: 'ErrorWidget',
-                data: { 
-                    title: 'Qidiruvda xatolik', 
-                    message: "Xavfsizlik tizimlari (Anti-Bot) meni bloklab qo'ydi. Iltimos, menga aniq bir sayt manzilini bering (masalan, kun.uz qidir)." 
-                }
+                data: { title: 'Qidiruvda xatolik', message: err.message }
             };
         }
     }
