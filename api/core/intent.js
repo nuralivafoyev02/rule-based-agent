@@ -22,7 +22,7 @@ export const analyzeIntent = async (text) => {
             const exactUrlMatch = text.match(/(https?:\/\/[^\s]+)/);
             
             // 2. Havola https siz (masalan, kun.uz, olx.uz) yozilganmi?
-            const domainMatch = text.match(/([a-z0-9\-]+\.(uz|com|org|net|ru|info))/i);
+            const domainMatch = text.match(/([a-z0-9\-.]+\.(uz|com|org|net|ru|info))/i);
 
             if (exactUrlMatch) {
                 targetUrl = exactUrlMatch[1];

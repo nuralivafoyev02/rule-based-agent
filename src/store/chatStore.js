@@ -1,14 +1,67 @@
 import { defineStore } from 'pinia';
 
 export const useChatStore = defineStore('chat', {
-  state: () => ({
-    messages: [], // { sender: 'user'|'ai', component: '...', data: {} }
-    isLoading: false,
-  }),
+  state: () => {
+    // Brauzer xotirasidan oldingi suhbatlarni tortib olish
+    const savedSessions = JSON.parse(localStorage.getItem('chat_sessions')) || [];
+    return {
+      sessions: savedSessions,
+      activeSessionId: savedSessions.length > 0 ? savedSessions[0].id : null,
+      isLoading: false,
+    };
+  },
+  
+  getters: {
+    // Faol suhbatdagi xabarlarni qaytarish
+    messages: (state) => {
+      const session = state.sessions.find(s => s.id === state.activeSessionId);
+      return session ? session.messages : [];
+    }
+  },
+  
   actions: {
+    saveToStorage() {
+      localStorage.setItem('chat_sessions', JSON.stringify(this.sessions));
+    },
+    
+    createNewSession() {
+      const newId = Date.now().toString();
+      // Yangi suhbatni ro'yxat boshiga qo'shish
+      this.sessions.unshift({ id: newId, title: 'Yangi suhbat', messages: [] });
+      this.activeSessionId = newId;
+      this.saveToStorage();
+    },
+    
+    loadSession(id) {
+      this.activeSessionId = id;
+    },
+    
+    deleteSession(id) {
+      this.sessions = this.sessions.filter(s => s.id !== id);
+      // Agar o'chirilgan chat faol chat bo'lsa, birinchisiga o'tkazib yuborish
+      if (this.activeSessionId === id) {
+        this.activeSessionId = this.sessions.length > 0 ? this.sessions[0].id : null;
+      }
+      this.saveToStorage();
+    },
+    
     async sendMessage(text) {
-      this.messages.push({ sender: 'user', component: 'TextBubble', data: { text } });
+      // Agar birorta ham suhbat ochilmagan bo'lsa, avtomatik yaratish
+      if (!this.activeSessionId) {
+        this.createNewSession();
+      }
+      
+      const session = this.sessions.find(s => s.id === this.activeSessionId);
+      
+      // Suhbatga nom berish (birinchi xabardan olinadi)
+      if (session.messages.length === 0) {
+        session.title = text.length > 25 ? text.substring(0, 25) + '...' : text;
+      }
+
+      // Foydalanuvchi xabarini UI ga chizish
+      session.messages.push({ sender: 'user', component: 'TextBubble', data: { text } });
       this.isLoading = true;
+      this.saveToStorage();
 
       try {
         const response = await fetch(import.meta.env.VITE_API_URL || '/api/chat', {
@@ -18,20 +71,22 @@ export const useChatStore = defineStore('chat', {
         });
         
         const result = await response.json();
-        // Backend qaysi UI ni ko'rsatishni aytadi
-        this.messages.push({ 
+        
+        // AI javobini UI ga chizish
+        session.messages.push({ 
           sender: 'ai', 
           component: result.ui_component || 'ErrorWidget', 
           data: result.data || { message: 'Kutilmagan xatolik' } 
         });
       } catch (error) {
-        this.messages.push({
+        session.messages.push({
           sender: 'ai',
           component: 'ErrorWidget',
           data: { title: 'Tarmoq xatosi', message: error.message }
         });
       } finally {
         this.isLoading = false;
+        this.saveToStorage();
       }
     }
   }
