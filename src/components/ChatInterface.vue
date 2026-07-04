@@ -55,7 +55,7 @@
                     class="flex items-center gap-3 w-full px-2 py-2 hover:bg-gray-200 rounded-lg transition-colors cursor-default">
                     <div
                         class="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[13px] font-bold shrink-0 shadow-sm">
-                        MS</div>
+                        NV</div>
                     <div class="flex-1 text-left overflow-hidden">
                         <div class="text-sm font-bold truncate text-gray-800">Nurali Vafoyev</div>
                         <div class="text-[12px] text-gray-500 font-medium">Asosiy profil</div>

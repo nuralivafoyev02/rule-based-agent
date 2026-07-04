@@ -93,5 +93,6 @@ export const useChatStore = defineStore('chat', {
         this.saveToStorage();
       }
     }
+    
   }
 });
