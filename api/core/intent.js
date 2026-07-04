@@ -6,11 +6,11 @@ import { setupWebhook } from './telegram.js';
 const nlp = new NLPProcessor();
 
 // 2. Tizimni Ehtimolliklar nazariyasiga o'qitamiz (Dataset kiritish)
-nlp.train('scraping', 'saytdan yangiliklarni qidirib top narxlar qanday');
-nlp.train('scraping', 'saytdan malumot skraping qil va menga topib ber');
-nlp.train('telegram', 'telegram botni ulash kerak webhook o\'rnat');
-nlp.train('telegram', 'bot sozlamalarini to\'g\'rila va telegram ula');
-nlp.train('greeting', 'salom qalay nima gap yaxshimisiz ishlaringiz qanday');
+nlp.train('scraping', "saytdan yangiliklarni qidirib top narxlar qanday");
+nlp.train('scraping', "saytdan malumot skraping qil va menga topib ber");
+nlp.train('telegram', "telegram botni ulash kerak webhook o'rnat");
+nlp.train('telegram', "bot sozlamalarini to'g'rila va telegram ula");
+nlp.train('greeting', "salom qalay nima gap yaxshimisiz ishlaringiz qanday");
 
 export const analyzeIntent = async (text) => {
     // 3. Matn maqsadini bashorat qilish
