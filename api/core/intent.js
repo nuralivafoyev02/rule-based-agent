@@ -13,6 +13,7 @@ nlp.train('capabilities', "nimalar qila olasan yordam berish imkoniyatlaring nim
 nlp.train('author', "kim yaratgan seni kim yozgan muallifing kim yaratuvching kim kim tayyorlagan nurali vafoyev nurali");
 nlp.train('bot_info', "isming nima sen kimsan o'zing haqingda yordamchi agent");
 nlp.train('reminder', "ertaga soat 9da ishga borishim kerak dushanba kuni uchrashuv bor eslatib qo'y eslatma yozib ol uchrashuv borligini eslat");
+nlp.train('polite', "rahmat raxmat sog bo'ling yashang baraka toping ajoyib super zo'r zor");
 
 // Kontekstli xotira har bir foydalanuvchi uchun alohida
 const userSessions = new Map();
@@ -89,9 +90,45 @@ export const analyzeIntent = async (text, history = [], userId = 'default_user')
 
         // --- 1. Salomlashish va kirish ---
         if (input.includes('salom') || input.includes('qalay') || input.includes('yaxshimisiz') || input.includes('nima gap') || input.includes('nma gap') || predictedIntent === 'greeting') {
+            // Oxirgi AI javoblari orasida salomlashish borligini tekshirish
+            const lastAIWasGreeting = history && history.length > 0 && 
+                history.slice(-3).some(h => h.sender === 'ai' && (h.message.includes('salom') || h.message.includes('alaykum') || h.message.includes('tinchlik') || h.message.includes('Salom')));
+
+            if (lastAIWasGreeting) {
+                const responses = [
+                    `Hozirgina salomlashdik-ku, ${session.userName}! 😊 Keling, yaxshisi rejalar haqida gaplashamiz. Bugun nimalar qilamiz?`,
+                    `Yana bir bor salom! Qulog'im sizda, ${session.userName}.`,
+                    `Hammasi tinch, rahmat, ${session.userName}. O'zingizda nima gaplar? Biznes hisobotlarini ko'rib chiqamizmi?`
+                ];
+                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                return {
+                    ui_component: 'TextBubble',
+                    data: { text: randomResponse }
+                };
+            }
+
+            const standardGreetings = [
+                `Assalomu alaykum, ${session.userName}! Ishlar qalay? Bugun qanday muammolarni hal qilamiz?`,
+                `Salom, ${session.userName}! Bugun qanday rejalaringiz bor? Sizga qanday yordam bera olaman?`,
+                `Assalomu alaykum! Xush kelibsiz. Bugungi loyihalarni tahlil qilamizmi?`
+            ];
+            const randomGreeting = standardGreetings[Math.floor(Math.random() * standardGreetings.length)];
             return {
                 ui_component: 'TextBubble',
-                data: { text: `Assalomu alaykum, ${session.userName}! Ishlar qalay? Bugun qanday muammolarni hal qilamiz?` }
+                data: { text: randomGreeting }
+            };
+        }
+
+        // --- 1.5. Rahmat / Xursandchilik ---
+        if (predictedIntent === 'polite' || input.includes('rahmat') || input.includes('raxmat') || input.includes('sog\' bo\'l') || input.includes('yashang')) {
+            const responses = [
+                "Arziydi! Har doim sizga yordam berishga tayyorman. 😊",
+                "Siz ham sog' bo'ling, Boshliq! Ishlaringizga omad.",
+                "E'tiboringiz uchun rahmat! Qanday yordam kerak bo'lsa, aytavering."
+            ];
+            return {
+                ui_component: 'TextBubble',
+                data: { text: responses[Math.floor(Math.random() * responses.length)] }
             };
         }
 
@@ -239,10 +276,15 @@ export const analyzeIntent = async (text, history = [], userId = 'default_user')
         }
 
         // --- 8. FALLBACK (Mukammal "Insoniy" javob) ---
+        const casualReplies = [
+            `Tushunishim bo'yicha, qiziqarli narsani nazarda tutyapsiz. Lekin men hozircha faqat ob-havo, veb-qidiruv, telegram webhook sozlash, kod tahlili va eslatmalar kabi masalalarda yordam bera olaman. Keling, ushbu mavzulardan birini sinab ko'ramiz!`,
+            `Bu qiziq tuyuldi, ${session.userName}. Lekin hozircha buni qanday bajarishni bilmayman. Menga kod yuboring yoki ob-havoni so'rang, bajonidil yordam beraman!`,
+            `Kechirasiz, biroz chalg'ib qoldim. Buyrug'ingizni yoki savolingizni aniqroq yozsangiz, darhol yordam beraman.`
+        ];
         return {
             ui_component: 'SuggestionCard',
             data: { 
-                suggestion: `Kechirasiz, ${session.userName}, bu so'rovingizni to'liq tushuna olmadim. Men hali ham o'rganish jarayonidaman. Quyidagi amallardan birini bajarib ko'ramizmi? Yoki nimalar qila olishim haqida so'rang!`,
+                suggestion: casualReplies[Math.floor(Math.random() * casualReplies.length)],
                 options: [
                     'Nimalar qila olasan?',
                     'Smeta hisobotini ko\'rish', 
