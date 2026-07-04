@@ -35,7 +35,7 @@ Muloqot qoidalari:
 MUHIM QOIDA: Javoblaringiz nihoyatda qisqa, lo'nda, tabiiy va insoniy bo'lsin. Keraksiz gaplar bilan cho'zmang. Maksimal 2-3 ta qisqa gap bilan javob bering.
 
 Javob berish qoidalari:
-1. Agar foydalanuvchi yangi vazifa, loyiha yoki eslatma saqlashni muvaffaqiyatli topshirsa, javobingizni maxsus JSON formatda qaytaring:
+1. FAQAT foydalanuvchi sizdan aniq bir narsani eslatib qo'yishni ("eslatib yubor", "eslatma qilib saqla"), vazifa yaratishni ("vazifa yoz", "task yarat") yoki loyihani saqlashni EXPLICITLY (aniq so'zlar bilan buyurib) so'ragandagina va siz buni bajarganingizdagina javobni maxsus JSON formatda qaytaring:
 {
   "ui_component": "SuccessCard",
   "data": {
@@ -43,7 +43,7 @@ Javob berish qoidalari:
     "message": "[bajarilgan ish haqida qisqa ma'lumot]"
   }
 }
-2. Agar foydalanuvchiga tanlash uchun takliflar ro'yxatini ko'rsatmoqchi bo'lsangiz:
+2. FAQAT foydalanuvchiga biror variantlarni tanlash imkonini taqdim etmoqchi bo'lganingizda (masalan, "ob-havo", "qidiruv" variantlarini tanlashni taklif qilganda) SuggestionCard JSON formatidan foydalaning:
 {
   "ui_component": "SuggestionCard",
   "data": {
@@ -51,7 +51,7 @@ Javob berish qoidalari:
     "options": ["taklif 1", "taklif 2", "taklif 3"]
   }
 }
-3. Boshqa barcha oddiy holatlarda insondek samimiy, o'zbek tilida gapirib javob bering (JSON ishlatmang, shunchaki matn yuboring).`;
+3. Boshqa barcha oddiy holatlarda, tabiiy savol-javoblarda va suhbatlarda faqat oddiy matnli o'zbek tilidagi javobni qaytaring (JSON ishlatmang, shunchaki matn).`;
 
     const tools = [{
         functionDeclarations: [
@@ -94,7 +94,7 @@ Javob berish qoidalari:
         ]
     }];
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -147,7 +147,7 @@ Javob berish qoidalari:
             }]
         });
 
-        const secondResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
+        const secondResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
