@@ -52,7 +52,7 @@ export const analyzeIntent = async (text, sessionId = 'default') => {
 
         // 1. Qat'iy qoidalar va Xavfsizlik
         if (intent === 'profanity') return { ui_component: 'TextBubble', data: { text: "Asablar tarang-ku! Yaxshisi, ishlarni tinchgina hal qilaylik." } };
-        if (intent === 'greeting' || input === 'salom') return { ui_component: 'TextBubble', data: { text: "Assalomu alaykum, Mirshod. Ishga tayyormisiz? Bugun nima qilamiz?" } };
+        if (intent === 'greeting' || input === 'salom') return { ui_component: 'TextBubble', data: { text: "Assalomu alaykum, Boshliq. Ishga tayyormisiz? Bugun nima qilamiz?" } };
         
         // 2. State Machine (Holatlar mantig'i)
         if (session.state === 1) { 
@@ -63,7 +63,7 @@ export const analyzeIntent = async (text, sessionId = 'default') => {
 
         if (intent === 'work') {
             session.state = 1; // Holat 1 ga o'tkazish
-            return { ui_component: 'TextBubble', data: { text: "Loyihalar holati bo'yicha hisobot tayyorlaymi? Bright Future House, Uyqur ERP yoki Procoin monitoringi kabi qaysi biri ustida ishlaymiz?" } };
+            return { ui_component: 'TextBubble', data: { text: "Loyihalar holati bo'yicha hisobot tayyorlaymi?" } };
         }
 
         // 3. ELIZA - Refleksiv suhbat (Illusion of Intelligence)
