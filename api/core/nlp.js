@@ -44,11 +44,13 @@ export class NLPProcessor {
         return tokens.map(token => {
             let bestMatch = token;
             let minDistance = Infinity;
+            // Dinamik limit: kalta so'zlar uchun kichikroq xatolik chegarasi
+            const maxAllowedDistance = token.length <= 3 ? 1 : 2;
 
             for (let word of vocabArray) {
                 const dist = this.levenshteinDistance(token, word);
-                // Agar masofa 2 yoki undan kam bo'lsa va bu eng kichik masofa bo'lsa
-                if (dist < minDistance && dist <= 2) {
+                // Agar masofa belgilangan chegaradan kam bo'lsa va bu eng kichik masofa bo'lsa
+                if (dist < minDistance && dist <= maxAllowedDistance) {
                     minDistance = dist;
                     bestMatch = word;
                 }

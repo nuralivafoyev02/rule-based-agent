@@ -25,7 +25,7 @@ onMounted(() => {
     background: linear-gradient(110deg,
             #9ca3af 30%,
             /* Ochiq kulrang (Boshi) */
-            #1f293799 50%,
+            #1f2937b4 50%,
             /* To'q qora (Yorqin nuqta) */
             #9ca3af 70%
             /* Ochiq kulrang (Oxiri) */

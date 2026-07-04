@@ -8,6 +8,7 @@ const nlp = new NLPProcessor();
 nlp.train('scraping', "saytdan yangiliklarni qidirib top narxlar qanday skraping qidir top");
 nlp.train('telegram', "telegram botni ulash webhook o'rnatish sozlash");
 nlp.train('weather', "ob havo qanday harorat necha gradus isitadimi sovuqmi");
+nlp.train('greeting', "salom qalay yaxshimisiz nima gap nma gaplar xormang slm");
 
 // Kontekstli xotira har bir foydalanuvchi uchun alohida
 const userSessions = new Map();
@@ -65,7 +66,7 @@ export const analyzeIntent = async (text, history = [], userId = 'default_user')
         }
 
         // --- 1. Salomlashish va kirish ---
-        if (input.includes('salom') || input.includes('qalay') || input.includes('yaxshimisiz')) {
+        if (input.includes('salom') || input.includes('qalay') || input.includes('yaxshimisiz') || input.includes('nima gap') || input.includes('nma gap') || predictedIntent === 'greeting') {
             return {
                 ui_component: 'TextBubble',
                 data: { text: `Assalomu alaykum, ${session.userName}! Ishlar qalay? Bugun qanday muammolarni hal qilamiz?` }
