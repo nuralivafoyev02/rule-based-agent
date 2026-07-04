@@ -9,6 +9,9 @@ nlp.train('scraping', "saytdan yangiliklarni qidirib top narxlar qanday skraping
 nlp.train('telegram', "telegram botni ulash webhook o'rnatish sozlash");
 nlp.train('weather', "ob havo qanday harorat necha gradus isitadimi sovuqmi");
 nlp.train('greeting', "salom qalay yaxshimisiz nima gap nma gaplar xormang slm");
+nlp.train('capabilities', "nimalar qila olasan yordam berish imkoniyatlaring nima nima qila oladi vazifang nima");
+nlp.train('author', "kim yaratgan seni kim yozgan muallifing kim yaratuvching kim kim tayyorlagan nurali vafoyev nurali");
+nlp.train('bot_info', "isming nima sen kimsan o'zing haqingda yordamchi agent");
 
 // Kontekstli xotira har bir foydalanuvchi uchun alohida
 const userSessions = new Map();
@@ -70,6 +73,32 @@ export const analyzeIntent = async (text, history = [], userId = 'default_user')
             return {
                 ui_component: 'TextBubble',
                 data: { text: `Assalomu alaykum, ${session.userName}! Ishlar qalay? Bugun qanday muammolarni hal qilamiz?` }
+            };
+        }
+
+        // --- 1.1. Muallif/Yaratuvchi haqida ---
+        if (predictedIntent === 'author' || input.includes('yaratgan') || input.includes('yozgan') || input.includes('muallif') || input.includes('nurali')) {
+            return {
+                ui_component: 'TextBubble',
+                data: { text: `Meni **Nurali Vafoyev** yaratganlar. Men u kishining shaxsiy yordamchisi hisoblanaman va turli kundalik vazifalarni bajarishda yordam beraman.` }
+            };
+        }
+
+        // --- 1.2. Bot haqida ma'lumot ---
+        if (predictedIntent === 'bot_info' || input.includes('kimsan') || input.includes('isming')) {
+            return {
+                ui_component: 'TextBubble',
+                data: { text: `Men sizning **Yordamchi Agentingizman**. Mening vazifam sizga ma'lumotlar qidirishda, ob-havoni tekshirishda, dasturlash masalalarida va boshqa ishlaringizda yordamlashishdir.` }
+            };
+        }
+
+        // --- 1.3. Imkoniyatlar (Capabilities) ---
+        if (predictedIntent === 'capabilities' || input.includes('imkoniyat') || input.includes('nima qila olasan') || input.includes('yordam ber') || input.includes('vazifang')) {
+            return {
+                ui_component: 'TextBubble',
+                data: { 
+                    text: `Men quyidagi vazifalarni bajara olaman:\n\n1. 🌐 **Veb Skraping va Qidiruv:** Har qanday saytdan ma'lumotlarni yig'ib berish yoki internetdan qidirish.\n2. ⛅️ **Ob-havo ma'lumotlari:** Toshkent va boshqa hududlar uchun joriy ob-havo haroratini ko'rsatish.\n3. 🤖 **Telegram Bot:** Telegram botlaringiz uchun webhook sozlash va ulash.\n4. 💻 **Texnik yordam:** Python, Vue yoki boshqa kodlaringizni tahlil qilish va xatolarni tuzatish.\n5. 💬 **Erkin suhbat:** Siz bilan suhbatlashish, ishlardan biroz chalg'ib dam olishingizga ko'maklashish.`
+                }
             };
         }
 
@@ -182,11 +211,11 @@ export const analyzeIntent = async (text, history = [], userId = 'default_user')
         return {
             ui_component: 'SuggestionCard',
             data: { 
-                suggestion: `${session.userName}, bu fikringizni biroz murakkabroq qabul qildim. Aniqroq buyruq berasizmi yoki quyidagilardan birini tanlaysizmi?`,
+                suggestion: `Kechirasiz, ${session.userName}, bu so'rovingizni to'liq tushuna olmadim. Men hali ham o'rganish jarayonidaman. Quyidagi amallardan birini bajarib ko'ramizmi? Yoki nimalar qila olishim haqida so'rang!`,
                 options: [
+                    'Nimalar qila olasan?',
                     'Smeta hisobotini ko\'rish', 
-                    'Texnik maslahat', 
-                    'Tanaffus qilish'
+                    'Texnik maslahat'
                 ]
             }
         };
