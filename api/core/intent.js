@@ -79,9 +79,11 @@ export const analyzeIntent = async (text, history = [], userId = 'default') => {
 
         const input = text.toLowerCase().trim();
 
+        // ==========================================
         // 1. QAT'IY QOPQON: So'kinish va jargonlarni ushlash
+        // ==========================================
         const profanityRegex = /(dnx|jal|naxxoy|poshel|qoton|qotoq|bla|skay|gandon|omi|dalbayob|chort|blyat|blyad|suka)/i;
-        if (profanityRegex.test(input)) {
+        if (profanityRegex.test(input) || input.includes('skay') || input.includes('qotoni') || input.includes('omi')) {
             const angryResponses = [
                 "O'oo, asablar tarangku! Keling, so'kinmasdan hal qilamiz. 😅",
                 "Bunday so'zlar bilan muammo hal bo'lmaydi. Yaxshisi, nima bo'lganini odamdek ayting.",
@@ -102,8 +104,8 @@ export const analyzeIntent = async (text, history = [], userId = 'default') => {
         // 3. NLP orqali qolgan niyatlarni aniqlash
         const intent = nlp.predict(input);
 
-        // 3.1. Salomlashish
-        if (intent === 'greeting' || input === 'salom') {
+        // 3.1. Salomlashish (Faqat qisqa gaplar va salom so'zi ishtirok etganda)
+        if ((intent === 'greeting' && input.length < 30) || input === 'salom' || input.startsWith('salom') || input.startsWith('assalomu alaykum')) {
             return { ui_component: 'TextBubble', data: { text: "Assalomu alaykum! Ishga tayyormisiz? Bugun nima qilamiz?" } };
         }
         
@@ -112,13 +114,13 @@ export const analyzeIntent = async (text, history = [], userId = 'default') => {
             session.state = 0;
             return { ui_component: 'SuccessCard', data: { title: 'Vazifa qabul qilindi', message: `"${text}" bo'yicha ma'lumotlarni tahlil qilishni boshladim.` } };
         }
-        if (intent === 'work') {
+        if (intent === 'work' && (input.includes('smeta') || input.includes('hisobot') || input.includes('loyiha') || input.includes('ish') || input.includes('vazifa') || input.includes('uyqur') || input.includes('procoin'))) {
             session.state = 1; 
             return { ui_component: 'TextBubble', data: { text: "Loyihalar holati bo'yicha hisobot tayyorlaymi? Bright Future House, Uyqur ERP yoki Procoin qaysi biri ustida ishlaymiz?" } };
         }
 
         // 3.3. Ob-havo (Weather)
-        if (intent === 'weather') {
+        if (intent === 'weather' && (input.includes('havo') || input.includes('harorat') || input.includes('gradus') || input.includes('issiq') || input.includes('sovuq'))) {
             try {
                 const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.2646&longitude=69.2163&current_weather=true');
                 if (response.ok) {
@@ -178,14 +180,16 @@ export const analyzeIntent = async (text, history = [], userId = 'default') => {
             }
         }
 
-        // 4. ELIZA - Refleksiv suhbat
-        for (let item of elizaPatterns) {
-            const match = input.match(item.pattern);
-            if (match) {
-                const capturedText = match[1];
-                const reflectedText = reflect(capturedText);
-                const randomResponse = item.responses[Math.floor(Math.random() * item.responses.length)];
-                return { ui_component: 'TextBubble', data: { text: randomResponse.replace(/\{0\}/g, reflectedText) } };
+        // 4. ELIZA - Refleksiv suhbat (Faqat juda qisqa suhbatlar uchun)
+        if (input.split(' ').length <= 5) {
+            for (let item of elizaPatterns) {
+                const match = input.match(item.pattern);
+                if (match) {
+                    const capturedText = match[1];
+                    const reflectedText = reflect(capturedText);
+                    const randomResponse = item.responses[Math.floor(Math.random() * item.responses.length)];
+                    return { ui_component: 'TextBubble', data: { text: randomResponse.replace(/\{0\}/g, reflectedText) } };
+                }
             }
         }
 
