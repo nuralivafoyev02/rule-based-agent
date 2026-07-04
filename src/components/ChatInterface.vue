@@ -91,7 +91,8 @@
                         :class="msg.sender === 'user' ? 'items-end' : 'items-start'">
                         <component :is="getComponent(msg.component)" :data="msg.data" :isUser="msg.sender === 'user'"
                             :isNew="msg.isNew" @typed="msg.isNew = false; chatStore.saveToStorage();"
-                            @typing="scrollToBottom" />
+                            @typing="scrollToBottom"
+                            @select="handleSuggestionSelect" />
                         <span v-if="msg.timestamp" class="text-[10px] text-gray-400 mt-1 px-1.5 select-none font-medium">
                             {{ formatTime(msg.timestamp) }}
                         </span>
@@ -176,6 +177,10 @@ const submitMessage = async () => {
     const msg = inputText.value;
     inputText.value = '';
     await chatStore.sendMessage(msg);
+};
+
+const handleSuggestionSelect = async (opt) => {
+    await chatStore.sendMessage(opt);
 };
 
 const formatTime = (timestamp) => {
