@@ -13,7 +13,7 @@ const currentWord = ref('Thinking...');
 
 onMounted(() => {
     // Tasodifiy so'zni tanlash
-    const words = ['Thinking...', 'Cooking...'];
+    const words = ['Thinking', 'Cooking'];
     const randomIndex = Math.floor(Math.random() * words.length);
     currentWord.value = words[randomIndex];
 });
@@ -25,7 +25,7 @@ onMounted(() => {
     background: linear-gradient(110deg,
             #9ca3af 30%,
             /* Ochiq kulrang (Boshi) */
-            #1f2937 50%,
+            #1f293799 50%,
             /* To'q qora (Yorqin nuqta) */
             #9ca3af 70%
             /* Ochiq kulrang (Oxiri) */
@@ -34,7 +34,7 @@ onMounted(() => {
     color: transparent;
     -webkit-background-clip: text;
     background-clip: text;
-    animation: shimmer 1.5s linear infinite;
+    animation: shimmer 2.5s linear infinite;
 }
 
 @keyframes shimmer {
