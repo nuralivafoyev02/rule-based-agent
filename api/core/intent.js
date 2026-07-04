@@ -9,39 +9,72 @@ nlp.train('scraping', "saytdan yangiliklarni qidirib top narxlar qanday skraping
 nlp.train('telegram', "telegram botni ulash webhook o'rnatish sozlash");
 nlp.train('weather', "ob havo qanday harorat necha gradus isitadimi sovuqmi");
 
-// Kontekstli xotira (Sessiya davomida bot sizni eslab qoladi)
-const BotContext = {
-    lastTopic: null,
-    sessionState: 'active',
-    userName: 'Boshliq'
-};
+// Kontekstli xotira har bir foydalanuvchi uchun alohida
+const userSessions = new Map();
+
+function getUserSession(userId) {
+    if (!userSessions.has(userId)) {
+        userSessions.set(userId, {
+            lastTopic: null,
+            userName: 'Boshliq',
+            sessionState: 'active'
+        });
+    }
+    return userSessions.get(userId);
+}
 
 /**
  * Matnni tahlil qilib, insoniy javob qaytaruvchi va API'larni boshqaruvchi funksiya
  */
-export const analyzeIntent = async (text) => {
+export const analyzeIntent = async (text, history = [], userId = 'default_user') => {
     try {
+        const session = getUserSession(userId);
+
         if (!text || typeof text !== 'string') {
             return {
                 ui_component: 'TextBubble',
-                data: { text: `Eshityapman, ${BotContext.userName}. Nima demoqchi edingiz?` }
+                data: { text: `Eshityapman, ${session.userName}. Nima demoqchi edingiz?` }
             };
         }
 
         const input = text.toLowerCase().trim();
         const predictedIntent = nlp.predict(input);
 
+        // --- 0. Kontekstual bog'liqlikni tekshirish (History) ---
+        // Agar gap "ertaga", "unda", "ha" kabi so'zlardan boshlansa, oldingi mavzuga qaraymiz.
+        if (input.includes('ertaga') || input.includes('qanaqa') || input.includes('keyinchi')) {
+            if (session.lastTopic === 'weather' || (history.length > 0 && history[history.length - 1].message.includes('harorat'))) {
+                return {
+                    ui_component: 'TextBubble',
+                    data: { text: `Ertaga harorat biroz o'zgarishi kutilmoqda. Lekin har qanday sharoitda ham ishda muvaffaqiyat tilayman, ${session.userName}!` }
+                };
+            }
+            if (session.lastTopic === 'work') {
+                return {
+                    ui_component: 'TextBubble',
+                    data: { text: `Ertangi ish rejasiga kelsak, avval bugungi hisobotlarni tugatib olishimiz kerak.` }
+                };
+            }
+        }
+        
+        if (input === 'ha' || input === 'tushundim' || input === "xo'p") {
+            return {
+                ui_component: 'TextBubble',
+                data: { text: `Juda yaxshi! Yana biror nima kerak bo'lsa, tortinmay yozavering.` }
+            };
+        }
+
         // --- 1. Salomlashish va kirish ---
         if (input.includes('salom') || input.includes('qalay') || input.includes('yaxshimisiz')) {
             return {
                 ui_component: 'TextBubble',
-                data: { text: `Assalomu alaykum, ${BotContext.userName}! Ishlar qalay? Bugun qanday muammolarni hal qilamiz?` }
+                data: { text: `Assalomu alaykum, ${session.userName}! Ishlar qalay? Bugun qanday muammolarni hal qilamiz?` }
             };
         }
 
         // --- 2. Ish va biznes mantig'i ---
         if (input.includes('smeta') || input.includes('hisobot') || input.includes('loyiha') || input.includes('ish')) {
-            BotContext.lastTopic = 'work';
+            session.lastTopic = 'work';
             return {
                 ui_component: 'TextBubble',
                 data: { text: "Tushundim, ish bo'yicha ma'lumot kerak. Qaysi loyiha bo'yicha hisobot tayyorlay? Yoki smeta hujjatlari va aktivlar rentabelligini tahlil qilamizmi?" }
@@ -50,7 +83,7 @@ export const analyzeIntent = async (text) => {
 
         // --- 3. Texnik/Kod mantig'i ---
         if (input.includes('kod') || input.includes('xatolik') || input.includes('deploy') || input.includes('bug')) {
-            BotContext.lastTopic = 'technical';
+            session.lastTopic = 'technical';
             return {
                 ui_component: 'TextBubble',
                 data: { text: "Texnik qismda muammo bormi? Python yoki Vue kodini yuborsangiz, birgalikda tahlil qilib, yechim topamiz." }
@@ -59,7 +92,7 @@ export const analyzeIntent = async (text) => {
 
         // --- 4. Hissiyot/Suhbat (Odamdek fikrlash) ---
         if (input.includes('zerikdim') || input.includes('gaplashaylik') || input.includes('o\'ylaysan')) {
-            if (BotContext.lastTopic === 'work') {
+            if (session.lastTopic === 'work') {
                 return {
                     ui_component: 'TextBubble',
                     data: { text: "Ishlar bilan o'zingizni juda charchatib yubordingiz. Balki tanaffus qilib, kelajakdagi loyihalar haqida suhbatlashamiz yoki biroz dam olamiz?" }
@@ -67,19 +100,20 @@ export const analyzeIntent = async (text) => {
             }
             return {
                 ui_component: 'TextBubble',
-                data: { text: `Zerikish ham ishning bir qismi, ${BotContext.userName}. Keling, dunyodagi yangi texnologiyalar yoki kelajakdagi Procoin kabi rejalaringiz haqida gaplashamiz. Nimalar rejalashtiryapsiz?` }
+                data: { text: `Zerikish ham ishning bir qismi, ${session.userName}. Keling, dunyodagi yangi texnologiyalar yoki kelajakdagi loyihalar haqida gaplashamiz. Nimalar rejalashtiryapsiz?` }
             };
         }
 
         // --- 5. Ob-havo (Odamdek gapirish + Haqiqiy API ma'lumoti) ---
         if (input.includes('havo') || input.includes('ob-havo') || input.includes('issiq') || predictedIntent === 'weather') {
+            session.lastTopic = 'weather';
             try {
                 const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.2646&longitude=69.2163&current_weather=true');
                 if (response.ok) {
                     const data = await response.json();
                     return {
                         ui_component: 'TextBubble',
-                        data: { text: `Toshkentda hozir harorat **${data.current_weather.temperature}°C**. Ob-havo o'zgaruvchan bo'lishi mumkin, lekin ishlaringizda doim barqarorlik tilayman, ${BotContext.userName}!` }
+                        data: { text: `Toshkentda hozir harorat **${data.current_weather.temperature}°C**. Ob-havo o'zgaruvchan bo'lishi mumkin, lekin ishlaringizda doim barqarorlik tilayman, ${session.userName}!` }
                     };
                 }
             } catch (e) {
@@ -87,12 +121,13 @@ export const analyzeIntent = async (text) => {
             }
             return {
                 ui_component: 'TextBubble',
-                data: { text: `Toshkentda ob-havo o'zgaruvchan, lekin sizning ishlaringizda hammasi barqaror bo'lishini tilayman, ${BotContext.userName}! Aniqroq harorat kerakmi?` }
+                data: { text: `Toshkentda ob-havo o'zgaruvchan, lekin sizning ishlaringizda hammasi barqaror bo'lishini tilayman, ${session.userName}! Aniqroq harorat kerakmi?` }
             };
         }
 
         // --- 6. Skraping va Qidiruv (Internetga chiqish) ---
         if (predictedIntent === 'scraping' || input.includes('qidir') || input.includes('top')) {
+            session.lastTopic = 'search';
             try {
                 let targetUrl = null;
                 const exactUrlMatch = input.match(/(https?:\/\/[^\s]+)/);
@@ -111,7 +146,7 @@ export const analyzeIntent = async (text) => {
                     const searchResults = await searchWeb(input);
                     return {
                         ui_component: 'TextBubble',
-                        data: { text: `🌐 ${BotContext.userName}, siz uchun qidiruv natijalari:\n\n` + searchResults.join('\n\n') }
+                        data: { text: `🌐 ${session.userName}, siz uchun qidiruv natijalari:\n\n` + searchResults.join('\n\n') }
                     };
                 }
             } catch (err) {
@@ -124,6 +159,7 @@ export const analyzeIntent = async (text) => {
 
         // --- 7. Telegram Webhook ---
         if (predictedIntent === 'telegram' || (input.includes('telegram') && input.includes('ulash'))) {
+            session.lastTopic = 'telegram';
             try {
                 const urlMatch = input.match(/(https?:\/\/[^\s]+)/);
                 if (!urlMatch) throw new Error('Telegram ulanishi uchun URL bering (Masalan: https://domain.uz).');
@@ -145,7 +181,7 @@ export const analyzeIntent = async (text) => {
         return {
             ui_component: 'SuggestionCard',
             data: { 
-                suggestion: `${BotContext.userName}, bu fikringizni biroz murakkabroq qabul qildim. Aniqroq buyruq berasizmi yoki quyidagilardan birini tanlaysizmi?`,
+                suggestion: `${session.userName}, bu fikringizni biroz murakkabroq qabul qildim. Aniqroq buyruq berasizmi yoki quyidagilardan birini tanlaysizmi?`,
                 options: [
                     'Smeta hisobotini ko\'rish', 
                     'Texnik maslahat', 

@@ -1,5 +1,5 @@
 import { analyzeIntent } from './core/intent.js';
-import { saveToHistory } from './core/supabase.js';
+import { saveToHistory, getHistory } from './core/supabase.js';
 
 export default async function handler(req, res) {
     // Zero-crash kafolati
@@ -20,11 +20,19 @@ export default async function handler(req, res) {
             });
         }
 
-        // 1. Miya: Maqsadni tushunish
-        const responseData = await analyzeIntent(message);
+        // 1. History ni olish
+        const history = await getHistory(userId);
 
-        // 2. Xotira: Tarixni saqlash (Asinxron xatosiz ishlashi uchun)
-        await saveToHistory(userId, message, responseData.ui_component).catch(console.error);
+        // 2. Miya: Maqsadni tushunish
+        const responseData = await analyzeIntent(message, history, userId);
+
+        // 3. Xotira: Tarixni saqlash (Asinxron xatosiz ishlashi uchun)
+        // Foydalanuvchi xabarini saqlash
+        await saveToHistory(userId, message, responseData.ui_component, 'user').catch(console.error);
+        
+        // AI javobini saqlash
+        const aiMessage = responseData.data?.text || responseData.data?.message || 'Maxsus komponent javobi';
+        await saveToHistory(userId, aiMessage, responseData.ui_component, 'ai').catch(console.error);
 
         // 3. Front-endga dinamik komponent va datani yuborish
         return res.status(200).json(responseData);
