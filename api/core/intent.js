@@ -1,34 +1,55 @@
 import { NLPProcessor } from './nlp.js';
-import { scrapeWebsite } from './scraper.js';
+import { scrapeWebsite, searchWeb } from './scraper.js';
 import { setupWebhook } from './telegram.js';
 
-// 1. NLP dvigatelini ishga tushiramiz
 const nlp = new NLPProcessor();
 
-// 2. Tizimni Ehtimolliklar nazariyasiga o'qitamiz (Dataset kiritish)
 nlp.train('scraping', "saytdan yangiliklarni qidirib top narxlar qanday");
-nlp.train('scraping', "saytdan malumot skraping qil va menga topib ber");
+nlp.train('scraping', "internetdan malumot skraping qil va menga topib ber");
+nlp.train('scraping', "qidir nima gaplar bor ekan axborot top");
 nlp.train('telegram', "telegram botni ulash kerak webhook o'rnat");
 nlp.train('telegram', "bot sozlamalarini to'g'rila va telegram ula");
 nlp.train('greeting', "salom qalay nima gap yaxshimisiz ishlaringiz qanday");
 
 export const analyzeIntent = async (text) => {
-    // 3. Matn maqsadini bashorat qilish
     const predictedIntent = nlp.predict(text);
 
-    // 4. Ehtimollik natijasiga qarab harakatlanish
     if (predictedIntent === 'scraping') {
         try {
-            const urlMatch = text.match(/(https?:\/\/[^\s]+)/);
-            const targetUrl = urlMatch ? urlMatch[1] : 'https://kun.uz'; 
-            const results = await scrapeWebsite(targetUrl);
+            let targetUrl = null;
+
+            // 1. Matn ichida aniq havola bormi? (https bilan)
+            const exactUrlMatch = text.match(/(https?:\/\/[^\s]+)/);
             
-            return {
-                ui_component: 'TextBubble',
-                data: { text: `Qidiruv natijalari (${targetUrl}):\n\n` + results.join('\n- ') }
-            };
+            // 2. Havola https siz (masalan, kun.uz, olx.uz) yozilganmi?
+            const domainMatch = text.match(/([a-z0-9\-]+\.(uz|com|org|net|ru|info))/i);
+
+            if (exactUrlMatch) {
+                targetUrl = exactUrlMatch[1];
+            } else if (domainMatch) {
+                targetUrl = `https://${domainMatch[1]}`;
+            }
+
+            // MANTIQ: Agar URL topilsa saytni o'qiydi, topilmasa internetdan qidiradi
+            if (targetUrl) {
+                const results = await scrapeWebsite(targetUrl);
+                return {
+                    ui_component: 'TextBubble',
+                    data: { text: `Tahlil qilinmoqda (${targetUrl}):\n\n- ` + results.join('\n- ') }
+                };
+            } else {
+                // Hech qanday sayt ko'rsatilmagan, demak umuman internetdan qidiramiz
+                const searchResults = await searchWeb(text);
+                return {
+                    ui_component: 'TextBubble',
+                    data: { text: `🌐 Internet bo'ylab qidiruv natijalari:\n\n` + searchResults.join('\n\n') }
+                };
+            }
         } catch (err) {
-            throw new Error(`Skrapingda xatolik: ${err.message}`);
+            return {
+                ui_component: 'ErrorWidget',
+                data: { title: 'Qidiruvda xatolik', message: err.message }
+            };
         }
     }
 
@@ -50,23 +71,25 @@ export const analyzeIntent = async (text) => {
                 data: { title: 'Telegram ulandi!', message: `${hookUrl} ga webhook o'rnatildi.` }
             };
         } catch (err) {
-            throw new Error(`Telegram API xatoligi: ${err.message}`);
+            return {
+                ui_component: 'ErrorWidget',
+                data: { title: 'Telegram xatoligi', message: err.message }
+            };
         }
     }
 
     if (predictedIntent === 'greeting') {
         return {
             ui_component: 'TextBubble',
-            data: { text: "Assalomu alaykum! Men sof algoritmlar va matritsalar asosida ishlovchi aqlli yordamchingizman. Veb-saytlardan ma'lumot izlash yoki tizimlarni ulashda yordam beraman." }
+            data: { text: "Assalomu alaykum! Men aqlli yordamchingizman. Menga internetdan biror narsa topishni yoki saytlarni o'qishni buyurishingiz mumkin. Sinab ko'ring!" }
         };
     }
 
-    // Hech qaysi parametr to'g'ri kelmasa (Fallback)
     return {
         ui_component: 'SuggestionCard',
         data: { 
-            suggestion: `Kechirasiz, ma'lumotlar bazamda bu ehtimollik juda past baholandi. Boshqacha tushuntirib ko'rasizmi?`,
-            options: ['Skraping qoidalari', 'Telegram sozlamalari']
+            suggestion: 'Kechirasiz, ma\'lumotlar bazamda bu ehtimollik juda past baholandi. Boshqacha tushuntirib ko\'rasizmi?',
+            options: ['O\'zbekiston yangiliklarini top', 'kun.uz dagi maqolalar', 'Telegram botni ulash']
         }
     };
 };
