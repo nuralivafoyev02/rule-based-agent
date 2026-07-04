@@ -4,33 +4,42 @@ import { setupWebhook } from './telegram.js';
 
 const nlp = new NLPProcessor();
 
+// O'QITISH BAZASI (DATASET)
 nlp.train('scraping', "saytdan yangiliklarni qidirib top narxlar qanday");
 nlp.train('scraping', "internetdan malumot skraping qil va menga topib ber");
 nlp.train('scraping', "qidir nima gaplar bor ekan axborot top");
-nlp.train('telegram', "telegram botni ulash kerak webhook o'rnat");
+
+nlp.train('telegram', "telegram botni ulash webhook o'rnatish");
 nlp.train('telegram', "bot sozlamalarini to'g'rila va telegram ula");
+
 nlp.train('greeting', "salom qalay nima gap yaxshimisiz ishlaringiz qanday");
+
+// YANGI: Oddiy suhbatlar va zerikish (Chitchat)
+nlp.train('chitchat', "manga shunday narsa kerakki nima qilish kerak bilmadim zerikdim");
+nlp.train('chitchat', "shunchaki gaplashmoqchi edim odamday gaplashaylik nimadur gapir");
+nlp.train('chitchat', "hafa bo'ldim charchadim ishlashga xohish yo'q kerak emas");
+
 
 export const analyzeIntent = async (text) => {
     const predictedIntent = nlp.predict(text);
 
+    // 1. Agar foydalanuvchi shunchaki zerikib gaplashmoqchi bo'lsa
+    if (predictedIntent === 'chitchat') {
+        return {
+            ui_component: 'TextBubble',
+            data: { text: "Rostini aytsam, men yirik sun'iy intellekt modeli emasman. Men qat'iy algoritmlar asosida yozilganman, shuning uchun odamdek dildan suhbat qura olmayman.\n\nLekin zerikkan bo'lsangiz, siz uchun internetdan biror qiziqarli yangilik yoki maqola qidirib topishim mumkin. Qidiramizmi?" }
+        };
+    }
+
     if (predictedIntent === 'scraping') {
         try {
             let targetUrl = null;
-
-            // 1. Matn ichida aniq havola bormi? (https bilan)
             const exactUrlMatch = text.match(/(https?:\/\/[^\s]+)/);
-            
-            // 2. Havola https siz (masalan, kun.uz, olx.uz) yozilganmi?
             const domainMatch = text.match(/([a-z0-9\-.]+\.(uz|com|org|net|ru|info))/i);
 
-            if (exactUrlMatch) {
-                targetUrl = exactUrlMatch[1];
-            } else if (domainMatch) {
-                targetUrl = `https://${domainMatch[1]}`;
-            }
+            if (exactUrlMatch) targetUrl = exactUrlMatch[1];
+            else if (domainMatch) targetUrl = `https://${domainMatch[1]}`;
 
-            // MANTIQ: Agar URL topilsa saytni o'qiydi, topilmasa internetdan qidiradi
             if (targetUrl) {
                 const results = await scrapeWebsite(targetUrl);
                 return {
@@ -38,11 +47,10 @@ export const analyzeIntent = async (text) => {
                     data: { text: `Tahlil qilinmoqda (${targetUrl}):\n\n- ` + results.join('\n- ') }
                 };
             } else {
-                // Hech qanday sayt ko'rsatilmagan, demak umuman internetdan qidiramiz
                 const searchResults = await searchWeb(text);
                 return {
                     ui_component: 'TextBubble',
-                    data: { text: `🌐 Internet bo'ylab qidiruv natijalari:\n\n` + searchResults.join('\n\n') }
+                    data: { text: `🌐 Internet qidiruv natijalari:\n\n` + searchResults.join('\n\n') }
                 };
             }
         } catch (err) {
@@ -61,7 +69,7 @@ export const analyzeIntent = async (text) => {
             if(!hookUrl) {
                 return {
                     ui_component: 'ErrorWidget',
-                    data: { title: 'URL topilmadi', message: 'Telegram ulanishi uchun URL bering.' }
+                    data: { title: 'URL topilmadi', message: 'Telegram ulanishi uchun URL bering (Masalan: https://domain.uz).' }
                 };
             }
 
@@ -81,15 +89,16 @@ export const analyzeIntent = async (text) => {
     if (predictedIntent === 'greeting') {
         return {
             ui_component: 'TextBubble',
-            data: { text: "Assalomu alaykum! Men aqlli yordamchingizman. Menga internetdan biror narsa topishni yoki saytlarni o'qishni buyurishingiz mumkin. Sinab ko'ring!" }
+            data: { text: "Assalomu alaykum! Men sizning shaxsiy yordamchingizman. Menga internetdan biror narsa topishni yoki veb-saytlarni tahlil qilishni buyurishingiz mumkin." }
         };
     }
 
+    // Hech qaysi toifaga tushmasa
     return {
         ui_component: 'SuggestionCard',
         data: { 
-            suggestion: 'Kechirasiz, ma\'lumotlar bazamda bu ehtimollik juda past baholandi. Boshqacha tushuntirib ko\'rasizmi?',
-            options: ['O\'zbekiston yangiliklarini top', 'kun.uz dagi maqolalar', 'Telegram botni ulash']
+            suggestion: 'Kechirasiz, men bu gapingizni tushunmadim. Menga aniqroq buyruq bering.',
+            options: ['O\'zbekiston yangiliklarini top', 'kun.uz maqolalari', 'Telegram botni ulash']
         }
     };
 };

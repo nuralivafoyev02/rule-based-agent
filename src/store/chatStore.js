@@ -25,8 +25,12 @@ export const useChatStore = defineStore('chat', {
     },
     
     createNewSession() {
+      // 1. Agar hozirgi faol chat mutlaqo bo'sh bo'lsa, yangi chat ochmaydi!
+      const currentSession = this.sessions.find(s => s.id === this.activeSessionId);
+      if (currentSession && currentSession.messages.length === 0) {
+        return; 
+      }
       const newId = Date.now().toString();
-      // Yangi suhbatni ro'yxat boshiga qo'shish
       this.sessions.unshift({ id: newId, title: 'Yangi suhbat', messages: [] });
       this.activeSessionId = newId;
       this.saveToStorage();
